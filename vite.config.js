@@ -1,17 +1,7 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
+// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
-  server: {
-    port: 5174,
-    proxy: {
-      // Forward /identify/** → http://localhost:8080/identify/**
-      // Backend context-path = /identify, nên giữ nguyên prefix
-      "/identify": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-      },
-    },
-  },
-});
+})

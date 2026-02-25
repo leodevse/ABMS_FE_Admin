@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
 import { serviceApi } from "../../api/serviceApi";
 
+// Must match backend enum BillingMethod { FIXED, AREA, METER, TIER }
 const BILLING_OPTIONS = [
-    { value: "METERED", label: "Metered – Tính theo chỉ số" },
-    { value: "FLAT", label: "Flat – Phí cố định" },
+    { value: "METER", label: "Metered – Tính theo chỉ số" },
+    { value: "FIXED", label: "Flat – Phí cố định" },
+    { value: "AREA", label: "Area – Theo diện tích (m²)" },
     { value: "TIER", label: "Tiered – Bậc thang" },
 ];
 
@@ -12,7 +14,7 @@ const DEFAULT_FORM = {
     code: "",
     name: "",
     unit: "",
-    billingMethod: "METERED",
+    billingMethod: "METER",
     isRecurring: true,
     taxable: true,
     description: "",
@@ -31,7 +33,7 @@ export default function ServiceFormModal({ service, onSaved, onClose, onError })
                 code: service.code ?? "",
                 name: service.name ?? "",
                 unit: service.unit ?? "",
-                billingMethod: service.billingMethod ?? "METERED",
+                billingMethod: service.billingMethod ?? "METER",
                 isRecurring: service.isRecurring ?? true,
                 taxable: service.taxable ?? true,
                 description: service.description ?? "",
@@ -182,8 +184,9 @@ export default function ServiceFormModal({ service, onSaved, onClose, onError })
                             color: "#1e40af",
                             marginBottom: "1rem",
                         }}>
-                            {form.billingMethod === "METERED" && "📊 Metered: Tính phí theo chỉ số thực tế (điện, nước). Cần ghi chỉ số hàng tháng."}
-                            {form.billingMethod === "FLAT" && "📋 Flat: Phí cố định mỗi kỳ, không phụ thuộc mức sử dụng."}
+                            {form.billingMethod === "METER" && "📊 Metered: Tính phí theo chỉ số thực tế (điện, nước). Cần ghi chỉ số hàng tháng."}
+                            {form.billingMethod === "FIXED" && "📋 Fixed: Phí cố định mỗi kỳ, không phụ thuộc mức sử dụng."}
+                            {form.billingMethod === "AREA" && "📐 Area: Phí tính theo diện tích (ví dụ: phí quản lý theo m²)."}
                             {form.billingMethod === "TIER" && "📈 Tiered: Bậc thang lũy tiến – phí thay đổi theo mức sử dụng. Cần cấu hình biểu giá bậc thang."}
                         </div>
 

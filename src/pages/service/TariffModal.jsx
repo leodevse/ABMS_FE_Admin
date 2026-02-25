@@ -186,7 +186,13 @@ export default function TariffModal({ service, onSaved, onClose, onError }) {
                         <p style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: 2 }}>
                             Mã: <code style={{ background: "#f1f5f9", padding: "0 4px", borderRadius: 3 }}>{service.code}</code>
                             &nbsp;·&nbsp;
-                            {service.billingMethod === "TIER" ? "Bậc thang" : service.billingMethod === "FLAT" ? "Phí cố định" : "Tính theo chỉ số"}
+                            {service.billingMethod === "TIER"
+                                ? "Bậc thang"
+                                : service.billingMethod === "FIXED"
+                                    ? "Phí cố định"
+                                    : service.billingMethod === "AREA"
+                                        ? "Theo diện tích"
+                                        : "Tính theo chỉ số"}
                         </p>
                     </div>
                     <button className="icon-btn" onClick={onClose}>

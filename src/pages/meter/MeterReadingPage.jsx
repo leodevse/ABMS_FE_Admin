@@ -28,28 +28,47 @@ function Toast({ toasts, onRemove }) {
     );
 }
 
-/* ─── Manual Add Modal ─── */
-function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
+/* ─── Manual Add / Edit Modal ─── */
+function ManualReadingModal({ service, period, reading, onSaved, onClose, onError }) {
+    const isEdit = !!reading;
+    const isLocked = isEdit && reading?.status !== "DRAFT";
+    const canEdit = !isLocked;
+
     const [apartments, setApartments] = useState([]);
-    const [selectedApartment, setSelectedApartment] = useState("");
-    const [oldIndex, setOldIndex] = useState(0);
-    const [newIndex, setNewIndex] = useState("");
-    const [isMeterReset, setIsMeterReset] = useState(false);
+    const [selectedApartment, setSelectedApartment] = useState(reading?.apartmentId || "");
+    const [oldIndex, setOldIndex] = useState(reading?.oldIndex || 0);
+    const [newIndex, setNewIndex] = useState(reading?.newIndex ?? "");
+    const [isMeterReset, setIsMeterReset] = useState(!!reading?.isMeterReset);
     const [photo, setPhoto] = useState(null);
-    const [photoPreview, setPhotoPreview] = useState(null);
-    const [note, setNote] = useState("");
+    const [photoPreview, setPhotoPreview] = useState(reading?.photoUrl || null);
+    const [note, setNote] = useState(reading?.note || "");
     const [loading, setLoading] = useState(false);
 
+    // Khi mở modal edit, đảm bảo fill đúng dữ liệu hiện tại (kể cả ảnh cũ)
     useEffect(() => {
-        apartmentApi.getAll().then(res => setApartments(res.data?.result || []));
-    }, []);
+        if (!isEdit) return;
+        setSelectedApartment(reading?.apartmentId || "");
+        setOldIndex(reading?.oldIndex || 0);
+        setNewIndex(reading?.newIndex ?? "");
+        setIsMeterReset(!!reading?.isMeterReset);
+        setNote(reading?.note || "");
+        setPhoto(null);
+        setPhotoPreview(reading?.photoUrl || null);
+    }, [isEdit, reading]);
+
+    // Chỉ load danh sách căn hộ + gợi ý chỉ số khi tạo mới.
+    useEffect(() => {
+        if (!isEdit) {
+            apartmentApi.getAll().then(res => setApartments(res.data?.result || []));
+        }
+    }, [isEdit]);
 
     useEffect(() => {
-        if (selectedApartment && service?.id && period) {
+        if (!isEdit && selectedApartment && service?.id && period) {
             meterReadingApi.getOldIndex(selectedApartment, service.id, period)
-                .then(res => setOldIndex(res.data?.result?.oldIndex || 0));
+                .then(res => setOldIndex(res.data?.result?.suggestedOldIndex || 0));
         }
-    }, [selectedApartment, service, period]);
+    }, [isEdit, selectedApartment, service, period]);
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0];
@@ -61,8 +80,19 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedApartment || !newIndex) {
-            onError("Vui lòng chọn căn hộ và nhập chỉ số mới");
+
+        if (isLocked) {
+            onError("Bản ghi đã xác nhận/khóa nên không thể chỉnh sửa");
+            return;
+        }
+
+        if (!newIndex) {
+            onError("Vui lòng nhập chỉ số mới");
+            return;
+        }
+
+        if (!isEdit && !selectedApartment) {
+            onError("Vui lòng chọn căn hộ");
             return;
         }
 
@@ -74,16 +104,26 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
 
         setLoading(true);
         try {
-            const data = {
-                apartmentId: selectedApartment,
-                serviceId: service.id,
-                period,
-                oldIndex,
-                newIndex: nIdx,
-                isMeterReset,
-                note
-            };
-            await meterReadingApi.create(data, photo);
+            if (isEdit) {
+                // Cập nhật bản ghi hiện có
+                await meterReadingApi.update(reading.id, {
+                    newIndex: nIdx,
+                    isMeterReset,
+                    note,
+                }, photo);
+            } else {
+                // Tạo mới
+                const data = {
+                    apartmentId: selectedApartment,
+                    serviceId: service.id,
+                    period,
+                    oldIndex,
+                    newIndex: nIdx,
+                    isMeterReset,
+                    note,
+                };
+                await meterReadingApi.create(data, photo);
+            }
             onSaved();
         } catch (err) {
             onError(err.response?.data?.message || "Lưu chỉ số thất bại");
@@ -97,7 +137,7 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
             <div className="modal modal--lg">
                 <div className="modal-header">
                     <div>
-                        <h2 className="modal-title">Thêm chỉ số thủ công</h2>
+                        <h2 className="modal-title">{isEdit ? "Chỉnh sửa chỉ số thủ công" : "Thêm chỉ số thủ công"}</h2>
                         <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
                             Dịch vụ: <strong>{service?.name}</strong> · Kỳ: <strong>{period}</strong>
                         </p>
@@ -106,12 +146,40 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body">
+                        {isLocked && (
+                            <div style={{
+                                padding: "0.6rem 0.9rem",
+                                background: "#fff7ed",
+                                border: "1px solid #fed7aa",
+                                borderRadius: "0.5rem",
+                                color: "#9a3412",
+                                fontSize: "0.85rem",
+                                marginBottom: "0.75rem",
+                            }}>
+                                Bản ghi đã <strong>{reading?.status === "LOCKED" ? "khóa" : "xác nhận"}</strong>, không thể chỉnh sửa.
+                            </div>
+                        )}
                         <div className="form-group">
                             <label className="form-label">Chọn căn hộ</label>
-                            <select className="form-select" value={selectedApartment} onChange={e => setSelectedApartment(e.target.value)} autoFocus>
-                                <option value="">-- Danh sách căn hộ --</option>
-                                {apartments.map(a => <option key={a.id} value={a.id}>{a.code}</option>)}
-                            </select>
+                            {isEdit ? (
+                                <input
+                                    className="form-input"
+                                    value={reading.apartmentCode}
+                                    disabled
+                                    style={{ background: "#f1f5f9" }}
+                                />
+                            ) : (
+                                <select
+                                    className="form-select"
+                                    value={selectedApartment}
+                                    onChange={e => setSelectedApartment(e.target.value)}
+                                    autoFocus
+                                    disabled={!canEdit}
+                                >
+                                    <option value="">-- Danh sách căn hộ --</option>
+                                    {apartments.map(a => <option key={a.id} value={a.id}>{a.code}</option>)}
+                                </select>
+                            )}
                         </div>
 
                         <div className="form-row">
@@ -128,6 +196,7 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                                     value={newIndex}
                                     onChange={e => setNewIndex(e.target.value)}
                                     placeholder="0.00"
+                                    disabled={!canEdit}
                                 />
                             </div>
                         </div>
@@ -139,6 +208,7 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                                     checked={isMeterReset}
                                     onChange={e => setIsMeterReset(e.target.checked)}
                                     className="form-checkbox"
+                                    disabled={!canEdit}
                                 />
                                 Thay đồng hồ / Reset về 0
                             </label>
@@ -153,12 +223,13 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                                     value={note}
                                     onChange={e => setNote(e.target.value)}
                                     placeholder="Nhập ghi chú hoặc lý do nếu reset chỉ số..."
+                                    disabled={!canEdit}
                                 />
                             </div>
                             <div className="form-group" style={{ flex: 1 }}>
                                 <label className="form-label">Ảnh chứng minh</label>
                                 <div
-                                    onClick={() => document.getElementById("photo-upload").click()}
+                                    onClick={() => canEdit && document.getElementById("photo-upload").click()}
                                     style={{
                                         border: "2px dashed var(--color-border)",
                                         borderRadius: "0.5rem",
@@ -167,7 +238,7 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                                         flexDirection: "column",
                                         alignItems: "center",
                                         justifyContent: "center",
-                                        cursor: "pointer",
+                                        cursor: canEdit ? "pointer" : "not-allowed",
                                         overflow: "hidden",
                                         position: "relative",
                                         background: photoPreview ? "none" : "#f8fafc"
@@ -181,14 +252,19 @@ function ManualReadingModal({ service, period, onSaved, onClose, onError }) {
                                             <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: 4 }}>Tải ảnh</span>
                                         </>
                                     )}
-                                    <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} />
+                                    <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} disabled={!canEdit} />
                                 </div>
+                                {isEdit && reading?.photoUrl && (
+                                    <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: 6 }}>
+                                        Ảnh hiện tại (bấm để thay ảnh)
+                                    </p>
+                                )}
                             </div>
                         </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
+                        <button type="submit" className="btn btn-primary" disabled={loading || !canEdit}>
                             <Save size={14} /> {loading ? "Đang lưu..." : "Lưu bản ghi"}
                         </button>
                     </div>
@@ -207,8 +283,10 @@ export default function MeterReadingPage() {
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingReading, setEditingReading] = useState(null);
     const [toasts, setToasts] = useState([]);
     const fileInputRef = useRef(null);
+    const newIndexRefs = useRef({});
 
     const addToast = useCallback((msg, type = "success") => {
         const id = Date.now();
@@ -220,8 +298,11 @@ export default function MeterReadingPage() {
         try {
             const res = await serviceApi.getAll(true);
             const allActive = res.data?.result || [];
+            // Chỉ lấy các dịch vụ có tính theo chỉ số (METER/TIER).
+            // Vẫn hỗ trợ các giá trị cũ METERED/TIERED nếu có dữ liệu legacy.
+            const allowed = ["METER", "TIER", "METERED", "TIERED"];
             const filterable = allActive.filter(s =>
-                ["METERED", "TIER", "TIERED"].includes(s.billingMethod?.toUpperCase())
+                allowed.includes(s.billingMethod?.toUpperCase())
             );
             setServices(filterable);
             if (filterable.length > 0 && !selectedService) {
@@ -237,7 +318,22 @@ export default function MeterReadingPage() {
         setLoading(true);
         try {
             const res = await meterReadingApi.getByPeriod(period, selectedService);
-            setReadings(res.data?.result || []);
+            const raw = res.data?.result || [];
+            // Luôn tính sẵn tiêu thụ để hiển thị, ngay cả trước khi sửa.
+            const mapped = raw.map(r => {
+                const newIdx = parseFloat(r.newIndex ?? 0) || 0;
+                const oldIdx = r.oldIndex || 0;
+                let usage = r.usage;
+                if (usage === undefined || usage === null) {
+                    if (r.isMeterReset && newIdx < oldIdx) {
+                        usage = newIdx;
+                    } else {
+                        usage = newIdx - oldIdx;
+                    }
+                }
+                return { ...r, newIndex: r.newIndex ?? "", usage };
+            });
+            setReadings(mapped);
         } catch (err) {
             addToast("Không thể tải dữ liệu chỉ số", "error");
         } finally {
@@ -355,7 +451,14 @@ export default function MeterReadingPage() {
                         </select>
                     </div>
                     <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem" }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => setShowAddModal(true)} disabled={!selectedService}>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => {
+                                setEditingReading(null);
+                                setShowAddModal(true);
+                            }}
+                            disabled={!selectedService}
+                        >
                             <Plus size={14} /> Thêm chỉ số
                         </button>
                     </div>
@@ -403,25 +506,63 @@ export default function MeterReadingPage() {
                                                 </div>
                                             </td>
                                             <td>{r.oldIndex}</td>
-                                            <td><input type="number" step="0.01" className="form-input form-input--sm" value={r.newIndex} disabled={r.status !== "DRAFT"} onChange={e => handleIndexChange(r.id, e.target.value)} /></td>
+                                            <td>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    className="form-input form-input--sm"
+                                                    value={r.newIndex}
+                                                    disabled={r.status !== "DRAFT"}
+                                                    onChange={e => handleIndexChange(r.id, e.target.value)}
+                                                    ref={el => {
+                                                        if (el) {
+                                                            newIndexRefs.current[r.id] = el;
+                                                        }
+                                                    }}
+                                                />
+                                            </td>
                                             <td style={{ fontWeight: 700, color: r.usage < 0 ? "var(--color-danger)" : "var(--color-primary)" }}>{r.usage?.toLocaleString()}</td>
                                             <td><span className={`badge ${STATUS_BADGE[r.status]?.cls}`}>{STATUS_BADGE[r.status]?.text}</span></td>
                                             <td>
-                                                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                                    <input className="form-input form-input--sm" value={r.note || ""} disabled={r.status !== "DRAFT"} onChange={e => {
+                                                <input
+                                                    className="form-input form-input--sm"
+                                                    value={r.note || ""}
+                                                    disabled={r.status !== "DRAFT"}
+                                                    onChange={e => {
                                                         setReadings(prev => prev.map(x => x.id === r.id ? { ...x, note: e.target.value, isModified: true } : x));
-                                                    }} />
-                                                    {r.status === "DRAFT" && (
-                                                        <label title="Thay đồng hồ" style={{ fontSize: "0.7rem", cursor: "pointer", display: "flex", alignItems: "center", gap: 2 }}>
-                                                            <input type="checkbox" checked={!!r.isMeterReset} onChange={() => toggleReset(r.id)} />
-                                                            Reset
-                                                        </label>
-                                                    )}
-                                                </div>
+                                                    }}
+                                                />
                                             </td>
                                             <td>
                                                 <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}>
-                                                    {r.status === "DRAFT" && <button className="icon-btn success" onClick={() => meterReadingApi.confirm(r.id).then(fetchReadings)}><CheckCircle size={15} /></button>}
+                                                    {r.status === "DRAFT" && (
+                                                        <>
+                                                            <button
+                                                                className="icon-btn"
+                                                                title="Chỉnh sửa chỉ số"
+                                                                onClick={() => {
+                                                                    setEditingReading(r);
+                                                                    setShowAddModal(true);
+                                                                }}
+                                                            >
+                                                                ✏
+                                                            </button>
+                                                            <button
+                                                                className={`icon-btn ${r.isMeterReset ? "warning" : ""}`}
+                                                                title="Đánh dấu thay đồng hồ / Reset"
+                                                                onClick={() => toggleReset(r.id)}
+                                                            >
+                                                                R
+                                                            </button>
+                                                            <button
+                                                                className="icon-btn success"
+                                                                title="Xác nhận chỉ số"
+                                                                onClick={() => meterReadingApi.confirm(r.id).then(fetchReadings)}
+                                                            >
+                                                                <CheckCircle size={15} />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                     {r.status === "CONFIRMED" && <button className="icon-btn warning" onClick={() => meterReadingApi.lock(r.id).then(fetchReadings)}><Lock size={15} /></button>}
                                                 </div>
                                             </td>
@@ -436,8 +577,17 @@ export default function MeterReadingPage() {
                 <ManualReadingModal
                     service={activeSvc}
                     period={period}
-                    onSaved={() => { setShowAddModal(false); fetchReadings(); addToast("Đã thêm chỉ số mới"); }}
-                    onClose={() => setShowAddModal(false)}
+                    reading={editingReading}
+                    onSaved={() => {
+                        setShowAddModal(false);
+                        setEditingReading(null);
+                        fetchReadings();
+                        addToast(editingReading ? "Đã cập nhật chỉ số" : "Đã thêm chỉ số mới");
+                    }}
+                    onClose={() => {
+                        setShowAddModal(false);
+                        setEditingReading(null);
+                    }}
                     onError={msg => addToast(msg, "error")}
                 />
             )}

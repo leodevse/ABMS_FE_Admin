@@ -5,9 +5,11 @@ import ServiceFormModal from "./ServiceFormModal";
 import TariffModal from "./TariffModal";
 
 // ── helpers ──────────────────────────────────────────────────
+// Must match backend enum BillingMethod { FIXED, AREA, METER, TIER }
 const BILLING_LABEL = {
-    METERED: { text: "Metered", cls: "badge--metered" },
-    FLAT: { text: "Flat", cls: "badge--flat" },
+    METER: { text: "Metered", cls: "badge--metered" },
+    FIXED: { text: "Fixed", cls: "badge--flat" },
+    AREA: { text: "Area", cls: "badge--flat" },
     TIER: { text: "Tiered", cls: "badge--tier" },
 };
 
