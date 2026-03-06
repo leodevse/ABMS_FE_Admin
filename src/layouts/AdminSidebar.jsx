@@ -3,6 +3,7 @@ import {
     LayoutDashboard,
     Settings,
     Gauge,
+    Wrench,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,12 @@ const navItems = [
         items: [
             { to: "/service-config", icon: Settings, label: "Cấu hình dịch vụ" },
             { to: "/meter-readings", icon: Gauge, label: "Ghi chỉ số" },
+        ],
+    },
+    {
+        section: "Bảo trì",
+        items: [
+            { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
         ],
     },
 ];

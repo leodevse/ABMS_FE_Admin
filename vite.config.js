@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 5174,
     proxy: {
-      // Forward /identify/** → http://localhost:8080/identify/**
-      // Backend context-path = /identify, nên giữ nguyên prefix
-      "/identify": {
+      // Forward /building-management/** → http://localhost:8080/building-management/**
+      // Backend context-path = /building-management, nên giữ nguyên prefix
+      "/building-management": {
         target: "http://localhost:8080",
         changeOrigin: true,
       },

@@ -1,6 +1,7 @@
 import {
     Settings,
     Gauge,
+    Wrench,
     LayoutDashboard,
     ArrowRight,
     CheckCircle2,
@@ -23,6 +24,13 @@ const quickLinks = [
         label: "Ghi chỉ số",
         desc: "Nhập chỉ số điện/nước theo kỳ",
         color: "green",
+    },
+    {
+        to: "/maintenance",
+        icon: Wrench,
+        label: "Yêu cầu bảo trì",
+        desc: "Theo dõi và xử lý yêu cầu bảo trì",
+        color: "yellow",
     },
 ];
 

@@ -3,6 +3,7 @@ import AdminLayout from "../layouts/AdminLayout";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import ServiceListPage from "../pages/service/ServiceListPage";
 import MeterReadingPage from "../pages/meter/MeterReadingPage";
+import MaintenancePage from "../pages/maintenance/MaintenancePage";
 
 const AppRouter = createBrowserRouter([
     {
@@ -26,6 +27,11 @@ const AppRouter = createBrowserRouter([
             {
                 path: "meter-readings",
                 element: <MeterReadingPage />,
+            },
+            // ── Phase 4 ──
+            {
+                path: "maintenance",
+                element: <MaintenancePage />,
             },
         ],
     },
