@@ -27,6 +27,8 @@ export default function MaintenancePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
     const [keyword, setKeyword] = useState("");
+    const [statusFilter, setStatusFilter] = useState("");
+    const [priorityFilter, setPriorityFilter] = useState("");
     const [page, setPage]       = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const PAGE_SIZE = 10;
@@ -35,13 +37,17 @@ export default function MaintenancePage() {
         setLoading(true);
         setError(null);
         try {
+            const params = { keyword, page, size: PAGE_SIZE };
+            if (statusFilter) params.status = statusFilter;
+            if (priorityFilter) params.priority = priorityFilter;
+            
             const [reqRes, statsRes] = await Promise.all([
-                maintenanceApi.getRequests({ keyword, page, size: PAGE_SIZE }),
+                maintenanceApi.getRequests(params),
                 maintenanceApi.getStatistics(),
             ]);
-            setRequests(reqRes.result?.data ?? []);
-            setTotalPages(reqRes.result?.totalPages ?? 1);
-            setStats(statsRes.result ?? null);
+            setRequests(reqRes.data.result?.data ?? []);
+            setTotalPages(reqRes.data.result?.totalPages ?? 1);
+            setStats(statsRes.data.result ?? null);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -124,21 +130,52 @@ export default function MaintenancePage() {
 
             {/* Toolbar */}
             <div className="card" style={{ marginBottom: "1rem" }}>
-                <form onSubmit={handleSearch} className="toolbar">
-                    <div className="toolbar__search">
+                <form onSubmit={handleSearch} className="toolbar" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                    <div className="toolbar__search" style={{ flex: 1, minWidth: '200px' }}>
                         <Search className="search-icon" />
                         <input
                             type="text"
                             className="form-input"
-                            placeholder="Tìm kiếm yêu cầu..."
+                            placeholder="Tìm kiếm yêu cầu (tiêu đề, mã)..."
                             value={keyword}
                             onChange={(e) => setKeyword(e.target.value)}
-                            style={{ paddingLeft: "2.25rem" }}
+                            style={{ paddingLeft: "2.25rem", width: '100%' }}
                         />
                     </div>
+                    
+                    <select 
+                        className="form-input" 
+                        value={statusFilter} 
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        style={{ width: '150px' }}
+                    >
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="PENDING">Chờ xử lý</option>
+                        <option value="VERIFYING">Đang xác minh</option>
+                        <option value="QUOTING">Đang báo giá</option>
+                        <option value="WAITING_APPROVAL">Chờ duyệt BG</option>
+                        <option value="APPROVED">Đã duyệt BG</option>
+                        <option value="IN_PROGRESS">Đang xử lý</option>
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="CANCELLED">Đã huỷ</option>
+                    </select>
+
+                    <select 
+                        className="form-input" 
+                        value={priorityFilter} 
+                        onChange={(e) => setPriorityFilter(e.target.value)}
+                        style={{ width: '150px' }}
+                    >
+                        <option value="">Tất cả độ ưu tiên</option>
+                        <option value="LOW">Thấp</option>
+                        <option value="MEDIUM">Trung bình</option>
+                        <option value="HIGH">Cao</option>
+                        <option value="URGENT">Khẩn cấp</option>
+                    </select>
+
                     <div className="toolbar__actions">
                         <button type="submit" className="btn btn-primary btn-sm">
-                            Tìm kiếm
+                            Lọc & Tìm kiếm
                         </button>
                     </div>
                 </form>

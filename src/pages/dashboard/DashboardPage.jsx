@@ -7,8 +7,11 @@ import {
     CheckCircle2,
     Clock,
     Lock,
+    AlertCircle,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import maintenanceApi from "../../api/maintenanceApi";
 
 const quickLinks = [
     {
@@ -35,7 +38,23 @@ const quickLinks = [
 ];
 
 export default function DashboardPage() {
-    const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const [maintenanceStats, setMaintenanceStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                // In a real app we might fetch stats for other modules too
+                const res = await maintenanceApi.getStatistics();
+                setMaintenanceStats(res.data.result);
+            } catch (error) {
+                console.error("Failed to fetch dashboard stats", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
 
     return (
         <div>
@@ -46,21 +65,26 @@ export default function DashboardPage() {
                     <div>
                         <h1 className="page-header__title">Dashboard</h1>
                         <p className="page-header__subtitle">
-                            Tổng quan hệ thống – Kỳ {currentPeriod}
+                            Tổng quan hệ thống
                         </p>
                     </div>
                 </div>
             </div>
 
+            <h2 style={{ fontSize: "1rem", fontWeight: 600, marginBottom: "0.75rem", color: "var(--color-text)" }}>
+                Thống kê bảo trì
+            </h2>
             {/* Stats */}
-            <div className="stats-grid">
+            <div className="stats-grid" style={{ marginBottom: "2rem" }}>
                 <div className="stat-card">
                     <div className="stat-card__icon stat-card__icon--blue">
-                        <Settings size={22} />
+                        <Wrench size={22} />
                     </div>
                     <div>
-                        <div className="stat-card__value">–</div>
-                        <div className="stat-card__label">Dịch vụ đang hoạt động</div>
+                        <div className="stat-card__value">
+                            {loading ? "..." : (maintenanceStats?.totalRequests ?? 0)}
+                        </div>
+                        <div className="stat-card__label">Tổng yêu cầu</div>
                     </div>
                 </div>
 
@@ -69,8 +93,10 @@ export default function DashboardPage() {
                         <Clock size={22} />
                     </div>
                     <div>
-                        <div className="stat-card__value">–</div>
-                        <div className="stat-card__label">Chỉ số chờ xác nhận (DRAFT)</div>
+                        <div className="stat-card__value">
+                            {loading ? "..." : (maintenanceStats?.byStatus?.PENDING ?? 0)}
+                        </div>
+                        <div className="stat-card__label">Chờ xử lý</div>
                     </div>
                 </div>
 
@@ -79,18 +105,22 @@ export default function DashboardPage() {
                         <CheckCircle2 size={22} />
                     </div>
                     <div>
-                        <div className="stat-card__value">–</div>
-                        <div className="stat-card__label">Đã xác nhận (CONFIRMED)</div>
+                        <div className="stat-card__value">
+                            {loading ? "..." : (maintenanceStats?.byStatus?.IN_PROGRESS ?? 0)}
+                        </div>
+                        <div className="stat-card__label">Đang xử lý</div>
                     </div>
                 </div>
-
+                
                 <div className="stat-card">
-                    <div className="stat-card__icon" style={{ background: "#f1f5f9", color: "#475569" }}>
-                        <Lock size={22} />
+                    <div className="stat-card__icon stat-card__icon--red">
+                        <AlertCircle size={22} />
                     </div>
                     <div>
-                        <div className="stat-card__value">–</div>
-                        <div className="stat-card__label">Đã khóa (LOCKED)</div>
+                        <div className="stat-card__value">
+                            {loading ? "..." : (maintenanceStats?.byStatus?.CANCELLED ?? 0)}
+                        </div>
+                        <div className="stat-card__label">Đã huỷ</div>
                     </div>
                 </div>
             </div>
@@ -132,21 +162,6 @@ export default function DashboardPage() {
                         </div>
                     </Link>
                 ))}
-            </div>
-
-            {/* Note */}
-            <div
-                style={{
-                    marginTop: "2rem",
-                    padding: "1rem 1.25rem",
-                    background: "#eff6ff",
-                    border: "1px solid #bfdbfe",
-                    borderRadius: "var(--radius)",
-                    fontSize: "0.83rem",
-                    color: "#1d4ed8",
-                }}
-            >
-                💡 <strong>Phase 4:</strong> Dashboard sẽ hiển thị số liệu thực từ API sau khi các module được hoàn thiện.
             </div>
         </div>
     );

@@ -4,6 +4,7 @@ import DashboardPage from "../pages/dashboard/DashboardPage";
 import ServiceListPage from "../pages/service/ServiceListPage";
 import MeterReadingPage from "../pages/meter/MeterReadingPage";
 import MaintenancePage from "../pages/maintenance/MaintenancePage";
+import MaintenanceDetail from "../pages/maintenance/MaintenanceDetail";
 
 const AppRouter = createBrowserRouter([
     {
@@ -32,6 +33,10 @@ const AppRouter = createBrowserRouter([
             {
                 path: "maintenance",
                 element: <MaintenancePage />,
+            },
+            {
+                path: "maintenance/:id",
+                element: <MaintenanceDetail />,
             },
         ],
     },
