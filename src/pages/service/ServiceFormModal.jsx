@@ -3,16 +3,16 @@ import { X, Save } from "lucide-react";
 import { serviceApi } from "../../api/serviceApi";
 
 const BILLING_OPTIONS = [
-    { value: "METERED", label: "Metered – Tính theo chỉ số" },
-    { value: "FLAT", label: "Flat – Phí cố định" },
-    { value: "TIER", label: "Tiered – Bậc thang" },
+    { value: "FIXED", label: "Fixed – Phí cố định" },
+    { value: "AREA", label: "Area – Theo diện tích" },
+    { value: "TIER", label: "Tier – Bậc thang lũy tiến" },
 ];
 
 const DEFAULT_FORM = {
     code: "",
     name: "",
     unit: "",
-    billingMethod: "METERED",
+    billingMethod: "FIXED",
     isRecurring: true,
     taxable: true,
     description: "",
@@ -31,7 +31,7 @@ export default function ServiceFormModal({ service, onSaved, onClose, onError })
                 code: service.code ?? "",
                 name: service.name ?? "",
                 unit: service.unit ?? "",
-                billingMethod: service.billingMethod ?? "METERED",
+                billingMethod: service.billingMethod ?? "FIXED",
                 isRecurring: service.isRecurring ?? true,
                 taxable: service.taxable ?? true,
                 description: service.description ?? "",
@@ -182,9 +182,9 @@ export default function ServiceFormModal({ service, onSaved, onClose, onError })
                             color: "#1e40af",
                             marginBottom: "1rem",
                         }}>
-                            {form.billingMethod === "METERED" && "📊 Metered: Tính phí theo chỉ số thực tế (điện, nước). Cần ghi chỉ số hàng tháng."}
-                            {form.billingMethod === "FLAT" && "📋 Flat: Phí cố định mỗi kỳ, không phụ thuộc mức sử dụng."}
-                            {form.billingMethod === "TIER" && "📈 Tiered: Bậc thang lũy tiến – phí thay đổi theo mức sử dụng. Cần cấu hình biểu giá bậc thang."}
+                            {form.billingMethod === "FIXED" && "📋 Fixed: Phí cố định mỗi kỳ, không phụ thuộc mức sử dụng (VD: phí gửi xe, wifi)."}
+                            {form.billingMethod === "AREA" && "📐 Area: Tính phí theo diện tích căn hộ (VD: phí quản lý tính theo m²)."}
+                            {form.billingMethod === "TIER" && "📈 Tier: Bậc thang lũy tiến, phí thay đổi theo mức tiêu thụ. Dùng cho điện, nước. Cần cấu hình biểu giá bậc thang."}
                         </div>
 
                         <div className="form-row" style={{ gridTemplateColumns: "1fr 1fr" }}>
