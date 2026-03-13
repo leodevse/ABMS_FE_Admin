@@ -4,6 +4,7 @@ import {
     Settings,
     Gauge,
     Wrench,
+    Home,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +25,12 @@ const navItems = [
         section: "Bảo trì",
         items: [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
+        ],
+    },
+        {
+        section: "Quản lý tòa nhà",
+        items: [
+            { to: "/building", icon: Home, label: "quản lý tòa nhà" },
         ],
     },
 ];

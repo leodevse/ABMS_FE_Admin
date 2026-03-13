@@ -5,11 +5,21 @@ import ServiceListPage from "../pages/service/ServiceListPage";
 import MeterReadingPage from "../pages/meter/MeterReadingPage";
 import MaintenancePage from "../pages/maintenance/MaintenancePage";
 import MaintenanceDetail from "../pages/maintenance/MaintenanceDetail";
+import Login from "../pages/auth/Login";
+import ProtectedRoute from "../context/ProtectedRoute"
+import BuildingList from "../pages/building/BuildingList"
+import AddBuilding from "../pages/building/AddBuilding"
 
 const AppRouter = createBrowserRouter([
+        {
+      path: "/login",
+      element: <Login />,
+    },
     {
         path: "/",
-        element: <AdminLayout />,
+        element: <ProtectedRoute>
+                      <AdminLayout />
+        </ProtectedRoute>,
         children: [
             {
                 index: true,
@@ -39,6 +49,18 @@ const AppRouter = createBrowserRouter([
                 element: <MaintenanceDetail />,
             },
         ],
+    },
+    {
+      path: "/",
+      element: (
+        <ProtectedRoute>
+            <AdminLayout />
+        </ProtectedRoute>
+      ),
+      children: [
+        { path: "building", element: <BuildingList /> },
+        { path: "add-building", element: <AddBuilding /> },
+      ],
     },
 ]);
 
