@@ -4,6 +4,8 @@ import {
     Settings,
     Gauge,
     Wrench,
+    CreditCard,
+    BarChart3,
 } from "lucide-react";
 
 const navItems = [
@@ -24,6 +26,13 @@ const navItems = [
         section: "Bảo trì",
         items: [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
+        ],
+    },
+    {
+        section: "Thanh toán",
+        items: [
+            { to: "/payment", icon: CreditCard, label: "Lịch sử giao dịch" },
+            { to: "/payment/dashboard", icon: BarChart3, label: "Dashboard thanh toán" },
         ],
     },
 ];

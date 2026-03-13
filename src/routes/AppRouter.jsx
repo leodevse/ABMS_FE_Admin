@@ -5,6 +5,8 @@ import ServiceListPage from "../pages/service/ServiceListPage";
 import MeterReadingPage from "../pages/meter/MeterReadingPage";
 import MaintenancePage from "../pages/maintenance/MaintenancePage";
 import MaintenanceDetail from "../pages/maintenance/MaintenanceDetail";
+import PaymentTransaction from "../pages/payment/PaymentTransaction";
+import PaymentDashboard from "../pages/payment/PaymentDashboard";
 
 const AppRouter = createBrowserRouter([
     {
@@ -37,6 +39,15 @@ const AppRouter = createBrowserRouter([
             {
                 path: "maintenance/:id",
                 element: <MaintenanceDetail />,
+            },
+            // ── Phase 5 — Thanh toán ──
+            {
+                path: "payment",
+                element: <PaymentTransaction />,
+            },
+            {
+                path: "payment/dashboard",
+                element: <PaymentDashboard />,
             },
         ],
     },
