@@ -220,12 +220,10 @@ export default function MeterReadingPage() {
         try {
             const res = await serviceApi.getAll(true);
             const allActive = res.data?.result || [];
-            const filterable = allActive.filter(s =>
-                ["METERED", "TIER", "TIERED"].includes(s.billingMethod?.toUpperCase())
-            );
-            setServices(filterable);
-            if (filterable.length > 0 && !selectedService) {
-                setSelectedService(filterable[0].id);
+            // Hiển thị tất cả dịch vụ đang active, không lọc theo billingMethod
+            setServices(allActive);
+            if (allActive.length > 0 && !selectedService) {
+                setSelectedService(allActive[0].id);
             }
         } catch (err) {
             addToast("Không thể tải danh sách dịch vụ", "error");

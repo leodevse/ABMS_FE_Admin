@@ -6,8 +6,8 @@ import TariffModal from "./TariffModal";
 
 // ── helpers ──────────────────────────────────────────────────
 const BILLING_LABEL = {
-    METERED: { text: "Metered", cls: "badge--metered" },
-    FLAT: { text: "Flat", cls: "badge--flat" },
+    FIXED: { text: "Fixed", cls: "badge--flat" },
+    AREA: { text: "Area", cls: "badge--metered" },
     TIER: { text: "Tiered", cls: "badge--tier" },
 };
 
@@ -162,7 +162,7 @@ export default function ServiceListPage() {
                                 <th>Mã</th>
                                 <th>Đơn vị</th>
                                 <th>Loại tính giá</th>
-                                <th>Định kỳ</th>
+                                {/* <th>Định kỳ</th> */}
                                 <th>Trạng thái</th>
                                 <th style={{ textAlign: "center" }}>Biểu giá</th>
                                 <th style={{ textAlign: "center" }}>Hành động</th>
@@ -202,7 +202,7 @@ export default function ServiceListPage() {
                                             <td>
                                                 <span className={`badge ${billing.cls}`}>{billing.text}</span>
                                             </td>
-                                            <td>{svc.isRecurring ? "✓" : "–"}</td>
+                                            {/* <td>{svc.isRecurring ? "✓" : "–"}</td> */}
                                             <td>
                                                 <span className={`badge ${svc.isActive ? "badge--active" : "badge--inactive"}`}>
                                                     {svc.isActive ? "Active" : "Inactive"}
