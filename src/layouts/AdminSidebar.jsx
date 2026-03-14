@@ -4,8 +4,7 @@ import {
     Settings,
     Gauge,
     Wrench,
-    CreditCard,
-    BarChart3,
+    Home,
 } from "lucide-react";
 
 const navItems = [
@@ -28,11 +27,10 @@ const navItems = [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
         ],
     },
-    {
-        section: "Thanh toán",
+        {
+        section: "Quản lý tòa nhà",
         items: [
-            { to: "/payment", icon: CreditCard, label: "Lịch sử giao dịch" },
-            { to: "/payment/dashboard", icon: BarChart3, label: "Dashboard thanh toán" },
+            { to: "/building", icon: Home, label: "quản lý tòa nhà" },
         ],
     },
 ];
