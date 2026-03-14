@@ -67,9 +67,9 @@ export default function PaymentTransaction() {
       if (statusFilter) params.status = statusFilter;
       if (billIdFilter.trim()) params.billId = billIdFilter.trim();
 
-      const res = await paymentApi.getTransactions(params);
+      const res = await paymentApi.getTransactions(params); 
       const data = res.data;
-      setTransactions(data.content || []);
+      setTransactions(data.result.content || []);
       setTotalPages(data.totalPages || 0);
       setTotalElements(data.totalElements || 0);
     } catch {
