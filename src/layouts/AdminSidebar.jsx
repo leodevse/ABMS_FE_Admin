@@ -27,10 +27,16 @@ const navItems = [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
         ],
     },
-        {
+    {
         section: "Quản lý tòa nhà",
         items: [
             { to: "/building", icon: Home, label: "quản lý tòa nhà" },
+        ],
+    },{
+        section: "Quản lý giao dịch",
+        items: [
+            // { to: "/payment/dashboard", icon: Home, label: "Quản lý doanh thu" },
+            { to: "/payment", icon: Home, label: "Danh sách giao dịch" },
         ],
     },
 ];

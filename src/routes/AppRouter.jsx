@@ -12,6 +12,8 @@ import AddBuilding from "../pages/building/AddBuilding";
 import ApartmentListByBuilding from "../pages/apartment/ApartmentListByBuilding";
 import ApartmentDetail from "../pages/apartment/ApartmentDetail";
 import AssignResident from "../pages/apartment/AssignResident";
+import PaymentTransaction from "../pages/payment/PaymentTransaction.jsx";
+import PaymentDashboard from "../pages/payment/PaymentDashboard.jsx";
 const AppRouter = createBrowserRouter([
   {
     path: "/login",
