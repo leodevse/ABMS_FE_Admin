@@ -29,7 +29,7 @@ export const meterReadingApi = {
         formData.append("data", JSON.stringify(data));
         if (photo) formData.append("photo", photo);
         return axiosClient.post("/meter-readings", formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: { "Content-Type": "multipart/form-data" }
         });
     },
 
@@ -39,7 +39,7 @@ export const meterReadingApi = {
         formData.append("data", JSON.stringify(data));
         if (photo) formData.append("photo", photo);
         return axiosClient.put(`/meter-readings/${id}`, formData, {
-            headers: { "Content-Type": "multipart/form-data" },
+            headers: { "Content-Type": "multipart/form-data" }
         });
     },
 

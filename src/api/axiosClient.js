@@ -28,7 +28,7 @@ axiosClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem("abms_token");
+            localStorage.removeItem("token");
             // window.location.href = "/login"; // Bật khi có auth
         }
         return Promise.reject(error);

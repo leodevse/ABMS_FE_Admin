@@ -2,11 +2,15 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { signIn } from "../../services/authApi";
+import { Mail, Lock, ArrowRight, Loader2 } from "lucide-react";
+
+import { Button, Form, Card } from "react-bootstrap";
+import 'bootstrap/dist/css/bootstrap.min.css';   
 
 function Login() {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -19,6 +23,7 @@ function Login() {
       return;
     }
 
+    setLoading(true);
     try {
       const data = await signIn(email, password);
       login(data);
@@ -26,93 +31,139 @@ function Login() {
     } catch (err) {
       console.error(err);
       alert("Sai email hoặc mật khẩu");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div
+      className="d-flex justify-content-center align-items-center"
+      style={{
+        minHeight: "100vh",
+        backgroundImage:
+          "url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab')",
+        backgroundSize: "cover",
+        backgroundPosition: "center"
+      }}
+    >
+      {/* overlay làm tối background */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "rgba(0,0,0,0.45)"
+        }}
+      />
 
-      {/* LEFT LOGIN */}
-      <div className="flex flex-col justify-center w-full lg:w-1/2 px-10">
+      {/* LOGIN FORM */}
+      <Card
+        className="shadow-lg"
+        style={{
+          width: "420px",
+          zIndex: 1,
+          borderRadius: "12px"
+        }}
+      >
+        <Card.Body className="p-4">
 
-        {/* Logo */}
-        <div className="flex items-center mb-10">
-          <span className="text-3xl font-bold">Logo</span>
-        </div>
+          {/* Title */}
+          <div className="text-center mb-4">
+            <h4 className="fw-bold">Building Management System</h4>
+            <p className="text-muted mb-0">Admin Login</p>
+          </div>
 
-        {/* Form */}
-        <div className="max-w-md">
+          <Form onSubmit={handleSubmit}>
 
-          <h2 className="text-2xl font-semibold mb-6">
-            Log in
-          </h2>
+            {/* Email */}
+            <Form.Group className="mb-3">
+              <Form.Label>Email</Form.Label>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="position-relative">
+                <Mail
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    opacity: 0.6
+                  }}
+                />
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Email
-              </label>
+                <Form.Control
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ paddingLeft: "35px" }}
+                />
+              </div>
+            </Form.Group>
 
-              <input
-                type="email"
-                placeholder="Enter email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
-              />
-            </div>
+            {/* Password */}
+            <Form.Group className="mb-4">
+              <div className="d-flex justify-content-between">
+                <Form.Label>Password</Form.Label>
+                <small className="text-muted">Forgot password?</small>
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Password
-              </label>
+              <div className="position-relative">
+                <Lock
+                  size={16}
+                  style={{
+                    position: "absolute",
+                    left: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    opacity: 0.6
+                  }}
+                />
 
-              <input
-                type="password"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-gray-300"
-              />
-            </div>
+                <Form.Control
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ paddingLeft: "35px" }}
+                />
+              </div>
+            </Form.Group>
 
-            <button
+            {/* Login Button */}
+            <Button
               type="submit"
-              className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition"
+              className="w-100 d-flex justify-content-center align-items-center"
+              disabled={loading}
             >
-              Login
-            </button>
+              {loading ? (
+                <>
+                  <Loader2
+                    size={16}
+                    className="me-2"
+                    style={{ animation: "spin 1s linear infinite" }}
+                  />
+                  Signing in...
+                </>
+              ) : (
+                <>
+                  Login
+                  <ArrowRight size={16} className="ms-2" />
+                </>
+              )}
+            </Button>
 
-          </form>
+          </Form>
 
-          <p className="text-sm text-gray-500 mt-4">
-            Forgot password?
-          </p>
+          <hr className="my-4" />
 
-          <p className="mt-6 text-sm">
+          <p className="text-center text-muted mb-0">
             Don't have an account?{" "}
-            <Link
-              to="/register"
-              className="text-blue-500 font-medium hover:underline"
-            >
-              Register here
-            </Link>
+            <Link to="/register">Register here</Link>
           </p>
 
-        </div>
-
-      </div>
-
-      {/* RIGHT IMAGE */}
-      <div className="hidden lg:block w-1/2">
-        <img
-          src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/img3.webp"
-          alt="login"
-          className="h-screen w-full object-cover"
-        />
-      </div>
-
+        </Card.Body>
+      </Card>
     </div>
   );
 }

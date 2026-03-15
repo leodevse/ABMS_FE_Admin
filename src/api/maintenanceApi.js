@@ -3,33 +3,33 @@ import axiosClient from "./axiosClient";
 const maintenanceApi = {
   // Requests
   getRequests: (params = {}) =>
-    axiosClient.get("/v1/maintenance-requests", { params }),
+    axiosClient.get("/maintenance-requests", { params }),
 
   getRequestById: (id) =>
-    axiosClient.get(`/v1/maintenance-requests/${id}`),
+    axiosClient.get(`/maintenance-requests/${id}`),
 
   assignRequest: (id, data) =>
-    axiosClient.patch(`/v1/maintenance-requests/${id}/assign`, data),
+    axiosClient.patch(`/maintenance-requests/${id}/assign`, data),
 
   cancelRequest: (id, data) =>
-    axiosClient.patch(`/v1/maintenance-requests/${id}/cancel`, data),
+    axiosClient.patch(`/maintenance-requests/${id}/cancel`, data),
 
   // Statistics
   getStatistics: (params = {}) =>
-    axiosClient.get("/v1/maintenance-requests/statistics", { params }),
+    axiosClient.get("/maintenance/statistics/statistics", { params }),
 
   getStaffWorkload: () =>
-    axiosClient.get("/v1/maintenance-requests/staff-workload"),
+    axiosClient.get("/maintenance/statistics/staff-workload"),
 
   getOverdueRequests: () =>
-    axiosClient.get("/v1/maintenance-requests/overdue"),
+    axiosClient.get("/maintenance/statistics/overdue"),
 
   // Workflow
   getQuotationsByRequestId: (id) =>
-    axiosClient.get(`/v1/maintenance-requests/${id}/quotations`),
+    axiosClient.get(`/maintenance-requests/${id}/quotations`),
 
   getLogs: (id) =>
-    axiosClient.get(`/v1/maintenance-requests/${id}/logs`),
+    axiosClient.get(`/maintenance-requests/${id}/logs`),
 };
 
 export default maintenanceApi;
