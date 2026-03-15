@@ -436,14 +436,25 @@ export default function TariffModal({ service, onSaved, onClose, onError }) {
                                             const vat = parseFloat(vatRate) || 0;
                                             const afterVat = base * (1 + vat / 100);
                                             return (
-                                                <div style={{ marginTop: 6, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
-                                                    <span style={{ color: "var(--color-text-muted)" }}>
-                                                        Giá gốc:&nbsp;<strong>{base.toLocaleString("vi-VN")} ₫</strong> / {service.unit || "đơn vị"}
-                                                    </span>
+                                                <div style={{
+                                                    marginTop: 10,
+                                                    padding: "0.75rem",
+                                                    background: "#f8fafc",
+                                                    borderRadius: "var(--radius)",
+                                                    border: "1px solid var(--color-border)",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    gap: "0.5rem"
+                                                }}>
+                                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                                                        <span>Giá trước VAT:</span>
+                                                        <span><strong>{base.toLocaleString("vi-VN")} ₫</strong> / {service.unit || "đơn vị"}</span>
+                                                    </div>
                                                     {vat > 0 && (
-                                                        <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>
-                                                            Giá sau VAT ({vat}%):&nbsp;<strong>{afterVat.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫</strong> / {service.unit || "đơn vị"}
-                                                        </span>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.9rem", color: "var(--color-primary)", fontWeight: 600, borderTop: "1px dashed #cbd5e1", paddingTop: "0.5rem" }}>
+                                                            <span>Giá thanh toán sau VAT ({vat}%):</span>
+                                                            <span>{afterVat.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫<span style={{ fontSize: "0.8em", color: "var(--color-text-muted)", marginLeft: 4 }}>/ {service.unit || "đơn vị"}</span></span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
@@ -485,14 +496,25 @@ export default function TariffModal({ service, onSaved, onClose, onError }) {
                                                 const vat = parseFloat(vatRate) || 0;
                                                 const afterVat = base * (1 + vat / 100);
                                                 return (
-                                                    <div style={{ marginTop: 6, fontSize: "0.8rem", display: "flex", flexDirection: "column", gap: 2 }}>
-                                                        <span style={{ color: "var(--color-text-muted)" }}>
-                                                            Giá gốc:&nbsp;<strong>{base.toLocaleString("vi-VN")} ₫</strong> / m²
-                                                        </span>
+                                                    <div style={{
+                                                        marginTop: 10,
+                                                        padding: "0.75rem",
+                                                        background: "#f8fafc",
+                                                        borderRadius: "var(--radius)",
+                                                        border: "1px solid var(--color-border)",
+                                                        display: "flex",
+                                                        flexDirection: "column",
+                                                        gap: "0.5rem"
+                                                    }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.85rem", color: "var(--color-text-muted)" }}>
+                                                            <span>Giá trước VAT:</span>
+                                                            <span><strong>{base.toLocaleString("vi-VN")} ₫</strong> / m²</span>
+                                                        </div>
                                                         {vat > 0 && (
-                                                            <span style={{ color: "var(--color-primary)", fontWeight: 600 }}>
-                                                                Giá sau VAT ({vat}%):&nbsp;<strong>{afterVat.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫</strong> / m²
-                                                            </span>
+                                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.9rem", color: "var(--color-primary)", fontWeight: 600, borderTop: "1px dashed #cbd5e1", paddingTop: "0.5rem" }}>
+                                                                <span>Giá thanh toán sau VAT ({vat}%):</span>
+                                                                <span>{afterVat.toLocaleString("vi-VN", { maximumFractionDigits: 0 })} ₫<span style={{ fontSize: "0.8em", color: "var(--color-text-muted)", marginLeft: 4 }}>/ m²</span></span>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 );

@@ -4,7 +4,8 @@ import {
     Settings,
     Gauge,
     Wrench,
-    Home,
+    Home,    Users
+
 } from "lucide-react";
 
 const navItems = [
@@ -27,16 +28,22 @@ const navItems = [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
         ],
     },
-        {
+    {
         section: "Quản lý tòa nhà",
         items: [
             { to: "/building", icon: Home, label: "quản lý tòa nhà" },
+        ],
+    },{
+        section: "Quản lý giao dịch",
+        items: [
+            // { to: "/payment/dashboard", icon: Home, label: "Quản lý doanh thu" },
+            { to: "/payment", icon: Home, label: "Danh sách giao dịch" },
         ],
     },
     {
         section: "Quản lý người dùng",
         items: [
-            { to: "/users", icon: Home, label: "quản lý người dùng" },
+            { to: "/users", icon: Users, label: "quản lý người dùng" },
         ],
     },
 ];

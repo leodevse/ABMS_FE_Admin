@@ -15,6 +15,9 @@ import AssignResident from "../pages/apartment/AssignResident";
 import ApartmentHistory from "../pages/apartment/ApartmentHistory";
 import UserList from "../pages/user/UserList";
 import UserForm from "../pages/user/UserForm";
+import PaymentTransaction from "../pages/payment/PaymentTransaction";
+import PaymentDashboard from "../pages/payment/PaymentDashboard";
+
 const AppRouter = createBrowserRouter([
   {
     path: "/login",
@@ -32,21 +35,26 @@ const AppRouter = createBrowserRouter([
         index: true,
         element: <Navigate to="/dashboard" replace />,
       },
+
+      // Dashboard
       {
         path: "dashboard",
         element: <DashboardPage />,
       },
-      // ── Phase 2 ──
+
+      // Services
       {
         path: "service-config",
         element: <ServiceListPage />,
       },
-      // ── Phase 3 ──
+
+      // Meter
       {
         path: "meter-readings",
         element: <MeterReadingPage />,
       },
-      // ── Phase 4 ──
+
+      // Maintenance
       {
         path: "maintenance",
         element: <MaintenancePage />,
@@ -55,23 +63,22 @@ const AppRouter = createBrowserRouter([
         path: "maintenance/:id",
         element: <MaintenanceDetail />,
       },
-    ],
-  },
-  {
-    path: "/",
-    element: (
-      <ProtectedRoute>
-        <AdminLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { path: "building", element: <BuildingList /> },
-      { path: "add-building", element: <AddBuilding /> },
+
+      // Building
+      {
+        path: "building",
+        element: <BuildingList />,
+      },
+      {
+        path: "add-building",
+        element: <AddBuilding />,
+      },
+
+      // Apartment
       {
         path: "buildings/:buildingId/apartments",
         element: <ApartmentListByBuilding />,
       },
-
       {
         path: "apartments/detail/:id",
         element: <ApartmentDetail />,
@@ -85,6 +92,7 @@ const AppRouter = createBrowserRouter([
         element: <ApartmentHistory />,
       },
 
+      // Users
       {
         path: "users",
         element: <UserList />,
@@ -96,6 +104,16 @@ const AppRouter = createBrowserRouter([
       {
         path: "users/edit/:id",
         element: <UserForm />,
+      },
+
+      // Payment
+      {
+        path: "payment",
+        element: <PaymentTransaction />,
+      },
+      {
+        path: "payment/dashboard",
+        element: <PaymentDashboard />,
       },
     ],
   },
