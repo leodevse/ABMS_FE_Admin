@@ -14,6 +14,7 @@ import ApartmentDetail from "../pages/apartment/ApartmentDetail";
 import AssignResident from "../pages/apartment/AssignResident";
 import PaymentTransaction from "../pages/payment/PaymentTransaction.jsx";
 import PaymentDashboard from "../pages/payment/PaymentDashboard.jsx";
+import PaymentTransactionDetail from "../pages/payment/PaymentTransactionDetail.jsx";
 const AppRouter = createBrowserRouter([
   {
     path: "/login",
@@ -120,6 +121,10 @@ const AppRouter = createBrowserRouter([
             {
                 path: "payment/dashboard",
                 element: <PaymentDashboard />,
+            },
+            {
+                path: "payment/detail/:transactionId",
+                element: <PaymentTransactionDetail />,
             },
         ],
     },

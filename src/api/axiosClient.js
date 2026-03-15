@@ -14,7 +14,7 @@ const axiosClient = axios.create({
 // Request interceptor – attach JWT khi có
 axiosClient.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem("abms_token");
+        const token = localStorage.getItem("token");
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }

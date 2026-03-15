@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import paymentApi from "../../api/paymentApi";
 
 const STATUS_CONFIG = {
@@ -33,6 +34,7 @@ const fmt = (n) => Number(n).toLocaleString("vi-VN") + " ₫";
 const PAGE_SIZE = 10;
 
 export default function PaymentTransaction() {
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
@@ -70,8 +72,8 @@ export default function PaymentTransaction() {
       const res = await paymentApi.getTransactions(params); 
       const data = res.data;
       setTransactions(data.result.content || []);
-      setTotalPages(data.totalPages || 0);
-      setTotalElements(data.totalElements || 0);
+      setTotalPages(data.result.totalPages || 0);
+      setTotalElements(data.result.totalElements || 0);
     } catch {
       showToast("Không thể tải dữ liệu giao dịch", "error");
     } finally {
@@ -532,6 +534,23 @@ export default function PaymentTransaction() {
                           }}
                         >
                           <button
+                            onClick={() => navigate(`/payment/detail/${tx.id}`)}
+                            style={{
+                              padding: "5px 12px",
+                              background: "#f8fafc",
+                              color: "#374151",
+                              border: "1px solid #e2e8f0",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            👁 Chi tiết
+                          </button>
+                          <button
                             onClick={() => handleSync(tx.orderCode)}
                             disabled={isSyncing}
                             style={{
@@ -580,7 +599,7 @@ export default function PaymentTransaction() {
         )}
 
         {/* Pagination */}
-        {totalPages > 1 && (
+        {totalElements > 0 && (
           <div
             style={{
               padding: "14px 20px",
