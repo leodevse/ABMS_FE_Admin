@@ -12,6 +12,9 @@ import AddBuilding from "../pages/building/AddBuilding";
 import ApartmentListByBuilding from "../pages/apartment/ApartmentListByBuilding";
 import ApartmentDetail from "../pages/apartment/ApartmentDetail";
 import AssignResident from "../pages/apartment/AssignResident";
+import ApartmentHistory from "../pages/apartment/ApartmentHistory";
+import UserList from "../pages/user/UserList";
+import UserForm from "../pages/user/UserForm";
 const AppRouter = createBrowserRouter([
   {
     path: "/login",
@@ -68,15 +71,32 @@ const AppRouter = createBrowserRouter([
         path: "buildings/:buildingId/apartments",
         element: <ApartmentListByBuilding />,
       },
-      
+
       {
         path: "apartments/detail/:id",
         element: <ApartmentDetail />,
       },
-            {
+      {
         path: "assign-resident",
         element: <AssignResident />,
-      }
+      },
+      {
+        path: "apartments/:id/history",
+        element: <ApartmentHistory />,
+      },
+
+      {
+        path: "users",
+        element: <UserList />,
+      },
+      {
+        path: "users/create",
+        element: <UserForm />,
+      },
+      {
+        path: "users/edit/:id",
+        element: <UserForm />,
+      },
     ],
   },
 ]);

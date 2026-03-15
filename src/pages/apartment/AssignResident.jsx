@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { 
     ChevronLeft, Search, User, Save, 
     AlertCircle, Loader2, X, Info, UserCheck, 
-    FileText, Key
+    FileText, Key, Shield
 } from "lucide-react";
 import { searchUsers, assignResident } from "../../services/userApi";
 

@@ -33,6 +33,12 @@ const navItems = [
             { to: "/building", icon: Home, label: "quản lý tòa nhà" },
         ],
     },
+    {
+        section: "Quản lý người dùng",
+        items: [
+            { to: "/users", icon: Home, label: "quản lý người dùng" },
+        ],
+    },
 ];
 
 export default function AdminSidebar() {
