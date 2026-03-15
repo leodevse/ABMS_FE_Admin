@@ -17,6 +17,7 @@ import UserList from "../pages/user/UserList";
 import UserForm from "../pages/user/UserForm";
 import PaymentTransaction from "../pages/payment/PaymentTransaction";
 import PaymentDashboard from "../pages/payment/PaymentDashboard";
+import EditBuilding from "../pages/building/EditBuilding";
 
 const AppRouter = createBrowserRouter([
   {
@@ -73,7 +74,10 @@ const AppRouter = createBrowserRouter([
         path: "add-building",
         element: <AddBuilding />,
       },
-
+    {
+        path: "buildings/edit/:id",
+        element: <EditBuilding />,
+      },
       // Apartment
       {
         path: "buildings/:buildingId/apartments",
