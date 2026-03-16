@@ -2,6 +2,8 @@ import { useState } from "react";
 import { AuthContext } from "./AuthContext";
 import { jwtDecode } from "jwt-decode";
 
+const REQUIRED_ROLE = "BUILDING_MANAGER";
+
 const AuthProvider = ({ children }) => {
 
   const [token, setToken] = useState(localStorage.getItem("token"));
@@ -12,25 +14,40 @@ const AuthProvider = ({ children }) => {
 
     try {
       const decoded = jwtDecode(savedToken);
+
+      if (decoded.scope !== REQUIRED_ROLE) {
+        localStorage.removeItem("token");
+        return null;
+      }
+
       return {
-        email: decoded.sub
+        email: decoded.sub,
+        role: decoded.scope
       };
+
     } catch {
       return null;
     }
   });
 
   const login = (data) => {
-    if (!data?.token) return;
+    if (!data?.token) return false;
+
+    const decoded = jwtDecode(data.token);
+    if (decoded.scope !== REQUIRED_ROLE) {
+      alert("Bạn không có quyền truy cập hệ thống này");
+      return false;
+    }
 
     localStorage.setItem("token", data.token);
 
-    const decoded = jwtDecode(data.token);
-
     setToken(data.token);
     setUser({
-      email: decoded.sub
+      email: decoded.sub,
+      role: decoded.scope
     });
+
+    return true;
   };
 
   const logout = () => {

@@ -8,4 +8,3 @@ export const fetchApartmentsByBuilding = async (buildingId) => {
     const res = await axiosClient.get(`/apartments/building/${buildingId}`);
     return res.data;
 };
-// Force Vite HMR to clear cache

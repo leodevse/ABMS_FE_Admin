@@ -167,7 +167,7 @@ export default function ApartmentDetail() {
                 })
               }
             >
-              <Plus size={18} /> Giao cư dân
+              <Plus size={18} /> Gán cư dân vào phòng
             </button>
             <button
               className="btn btn-ghost"
