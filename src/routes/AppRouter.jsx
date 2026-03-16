@@ -23,6 +23,7 @@ import EditBuilding from "../pages/building/EditBuilding";
 import ServiceFormPage from "../pages/service/ServiceFormPage";
 import TariffPage from "../pages/service/TariffPage";
 import MeterReadingFormPage from "../pages/meter/MeterReadingFormPage";
+import PaymentTransactionDetail from "../pages/payment/PaymentTransactionDetail.jsx";
 
 const AppRouter = createBrowserRouter([
   {
@@ -136,17 +137,22 @@ const AppRouter = createBrowserRouter([
         path: "users/edit/:id",
         element: <UserForm />,
       },
-      // Payment
-      {
-        path: "payment",
-        element: <PaymentTransaction />,
-      },
-      {
-        path: "payment/dashboard",
-        element: <PaymentDashboard />,
-      },
-    ],
-  },
+
+            // Payment
+            {
+                path: "payment",
+                element: <PaymentTransaction />,
+            },
+            {
+                path: "payment/dashboard",
+                element: <PaymentDashboard />,
+            },
+            {
+                path: "payment/detail/:transactionId",
+                element: <PaymentTransactionDetail />,
+            },
+        ],
+    },
 ]);
 
 export default AppRouter;

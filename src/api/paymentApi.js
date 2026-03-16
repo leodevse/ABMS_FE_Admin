@@ -21,6 +21,18 @@ const paymentApi = {
   // Thống kê — params: { month, year }
   getStatistics: (params = {}) =>
     axiosClient.get("/payments/statistics", { params }),
+
+  // Chi tiết giao dịch (admin)
+  getTransactionDetail: (transactionId) =>
+    axiosClient.get(`/payments/admin/transactions/${transactionId}/detail`),
+
+  // Chi tiết hóa đơn
+  getBillDetail: (billId) =>
+    axiosClient.get(`/monthly-bills/${billId}`),
+
+  // Từ chối giao dịch (admin)
+  rejectTransaction: (transactionId, reason) =>
+    axiosClient.post(`/payments/admin/transactions/${transactionId}/reject`, { reason }),
 };
 
 export default paymentApi;
