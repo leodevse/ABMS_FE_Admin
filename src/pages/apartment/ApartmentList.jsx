@@ -4,6 +4,13 @@ import { ArrowLeft, Home, Layers, Search, Box, MapPin, Info } from "lucide-react
 import { fetchApartmentsByBuilding } from "../../services/apartmentApi";
 import { fetchBuildingById } from "../../services/buildingApi";
 
+const APARTMENT_STATUS_MAP = {
+  AVAILABLE: "Trống",
+  OCCUPIED: "Đang ở",
+  MAINTENANCE: "Bảo trì",
+  INACTIVE: "Tạm khoá",
+};
+
 export default function ApartmentList() {
   const { buildingId } = useParams(); 
   const navigate = useNavigate();
@@ -122,7 +129,7 @@ export default function ApartmentList() {
                 <td className="px-6 py-4 text-right">
                   <span className={`px-3 py-1 rounded-full text-[10px] font-black border uppercase 
                     ${apt.status === 'AVAILABLE' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                    {apt.status}
+                    {APARTMENT_STATUS_MAP[apt.status] || apt.status}
                   </span>
                 </td>
               </tr>

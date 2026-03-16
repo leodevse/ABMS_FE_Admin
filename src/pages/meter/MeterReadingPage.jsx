@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
     Gauge, Search, Download, Upload, Save, CheckCircle, Lock,
-    AlertCircle, ChevronRight, ChevronDown, ChevronUp, Edit2, FileSpreadsheet, RefreshCw, Plus, X, Camera, Image as ImageIcon
+    AlertCircle, ChevronDown, ChevronUp, Edit2, RefreshCw, Plus, Image as ImageIcon
 } from "lucide-react";
 import * as XLSX from "xlsx";
-import { meterReadingApi } from "../../api/meterReadingApi";
-import { serviceApi } from "../../api/serviceApi";
-import { apartmentApi, fetchApartmentsByBuilding } from "../../api/apartmentApi";
+import { meterReadingApi } from "../../services/meterReadingApi";
+import { serviceApi } from "../../services/serviceApi";
+import { fetchApartmentsByBuilding } from "../../api/apartmentApi";
 import { fetchBuildings } from "../../services/buildingApi";
 
 // ── helpers ──────────────────────────────────────────────────
@@ -30,235 +31,9 @@ function Toast({ toasts, onRemove }) {
     );
 }
 
-/* ─── Manual Add/Edit Modal ─── */
-function ManualReadingModal({ service, period, apartments, initialData, onSaved, onClose, onError }) {
-    const isReadOnly = initialData && initialData.status !== "DRAFT" && initialData.status !== "UNRECORDED" && initialData.status !== undefined;
-    const [selectedApartment, setSelectedApartment] = useState(initialData?.apartmentId || "");
-    const [oldIndex, setOldIndex] = useState(initialData?.status !== "UNRECORDED" ? (initialData?.oldIndex || 0) : 0);
-    const [newIndex, setNewIndex] = useState(initialData?.newIndex || "");
-    const [isMeterReset, setIsMeterReset] = useState(initialData?.isMeterReset || false);
-    const [photo, setPhoto] = useState(null);
-    const resolveImageUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const basePath = baseUrl.replace(/\/api\/?$/, '');
-        return url.startsWith('/') ? `${basePath}${url}` : `${basePath}/${url}`;
-    };
-    const [photoPreview, setPhotoPreview] = useState(resolveImageUrl(initialData?.photoUrl));
-    const [note, setNote] = useState(initialData?.note || "");
-    const [loading, setLoading] = useState(false);
-
-    const parsedNew = parseFloat(newIndex);
-    const parsedOld = parseFloat(oldIndex);
-    const currentUsage = !isNaN(parsedNew) && !isNaN(parsedOld)
-        ? (isMeterReset && parsedNew < parsedOld ? parsedNew : parsedNew - parsedOld)
-        : "";
-
-    useEffect(() => {
-        if (!initialData || initialData.status === "UNRECORDED") {
-            if (selectedApartment && service?.id && period) {
-                meterReadingApi.getOldIndex(selectedApartment, service.id, period)
-                    .then(res => setOldIndex(res.data?.result?.suggestedOldIndex ?? 0))
-                    .catch(() => setOldIndex(0));
-            }
-        }
-    }, [selectedApartment, service, period, initialData]);
-
-    const handlePhotoChange = (e) => {
-        if (isReadOnly) return;
-        const file = e.target.files[0];
-        if (file) {
-            setPhoto(file);
-            setPhotoPreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (isReadOnly) { onClose(); return; }
-        const isTier = service?.billingMethod === "TIER";
-
-        if (!selectedApartment) {
-            onError("Vui lòng chọn căn hộ");
-            return;
-        }
-
-        if (isTier && newIndex === "") {
-            onError("Vui lòng nhập chỉ số mới");
-            return;
-        }
-
-        const nIdx = isTier ? parseFloat(newIndex) : 0;
-        if (isTier && !isMeterReset && nIdx < oldIndex) {
-            onError("Chỉ số mới không được nhỏ hơn chỉ số cũ trừ khi đánh dấu 'Thay đồng hồ/Reset'");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const data = {
-                apartmentId: selectedApartment,
-                serviceId: service.id,
-                period,
-                oldIndex,
-                newIndex: nIdx,
-                isMeterReset,
-                note
-            };
-            if (initialData && initialData.id && !initialData.isPlaceholder) {
-                await meterReadingApi.update(initialData.id, data, photo);
-            } else {
-                await meterReadingApi.create(data, photo);
-            }
-            onSaved();
-        } catch (err) {
-            onError(err.response?.data?.message || "Lưu chỉ số thất bại");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal modal--lg">
-                <div className="modal-header">
-                    <div>
-                        <h2 className="modal-title">
-                            {isReadOnly ? "Chi tiết chỉ số" : (initialData && !initialData.isPlaceholder ? "Chỉnh sửa chỉ số" : "Thêm chỉ số thủ công")}
-                        </h2>
-                        <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                            Dịch vụ: <strong>{service?.name}</strong> · Kỳ: <strong>{period}</strong>
-                        </p>
-                    </div>
-                    <button className="icon-btn" type="button" onClick={onClose}><X size={16} /></button>
-                </div>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
-                        <div className="form-group">
-                            <label className="form-label">Chọn căn hộ</label>
-                            <select className="form-select" value={selectedApartment} disabled={!!initialData} onChange={e => setSelectedApartment(e.target.value)} autoFocus>
-                                <option value="">-- Danh sách căn hộ --</option>
-                                {apartments.map(a => <option key={a.id} value={a.id}>{a.code}</option>)}
-                            </select>
-                        </div>
-
-                        {service?.billingMethod === "TIER" && (
-                            <>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Chỉ số cũ ({service?.unit})</label>
-                                        <input className="form-input" value={oldIndex} disabled style={{ background: "#f1f5f9" }} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Chỉ số mới ({service?.unit})</label>
-                                        <input
-                                            className="form-input"
-                                            type="number"
-                                            step="0.01"
-                                            value={newIndex}
-                                            onChange={e => setNewIndex(e.target.value)}
-                                            placeholder="0.00"
-                                            disabled={isReadOnly}
-                                            style={isReadOnly ? { background: "#f1f5f9" } : {}}
-                                        />
-                                        {(!isMeterReset && parsedNew < parsedOld) && (
-                                            <span style={{ color: "var(--color-warning)", fontSize: "0.8rem", marginTop: "0.25rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                <AlertCircle size={14} />
-                                                Chỉ số mới nhỏ hơn chỉ số cũ. Vui lòng chọn Reset.
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Tiêu thụ ({service?.unit})</label>
-                                        <input
-                                            className="form-input"
-                                            value={currentUsage !== "" ? currentUsage.toLocaleString() : ""}
-                                            disabled
-                                            style={{ background: "#f1f5f9", fontWeight: "bold", color: currentUsage < 0 ? "var(--color-danger)" : "#334155" }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.5rem", marginBottom: "1rem" }}>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: isReadOnly ? "default" : "pointer", fontSize: "0.875rem" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isMeterReset}
-                                            onChange={e => setIsMeterReset(e.target.checked)}
-                                            className="form-checkbox"
-                                            disabled={isReadOnly}
-                                        />
-                                        Thay đồng hồ / Reset về 0
-                                    </label>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="form-row">
-                            <div className="form-group" style={{ flex: 2 }}>
-                                <label className="form-label">Ghi chú / Lý do</label>
-                                <textarea
-                                    className="form-textarea"
-                                    rows={3}
-                                    value={note}
-                                    onChange={e => setNote(e.target.value)}
-                                    placeholder={!isReadOnly ? "Nhập ghi chú hoặc lý do nếu reset chỉ số..." : ""}
-                                    disabled={isReadOnly}
-                                    style={isReadOnly ? { background: "#f1f5f9" } : {}}
-                                />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label className="form-label">Ảnh chứng minh</label>
-                                <div
-                                    onClick={() => !isReadOnly && document.getElementById("photo-upload").click()}
-                                    style={{
-                                        border: "2px dashed var(--color-border)",
-                                        borderRadius: "0.5rem",
-                                        height: "80px",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        cursor: isReadOnly ? "default" : "pointer",
-                                        overflow: "hidden",
-                                        position: "relative",
-                                        background: photoPreview ? "none" : "#f8fafc"
-                                    }}
-                                >
-                                    {photoPreview ? (
-                                        <img src={photoPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Preview" />
-                                    ) : (
-                                        <>
-                                            <Camera size={20} color="var(--color-text-muted)" />
-                                            {!isReadOnly && <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: 4 }}>Tải ảnh</span>}
-                                        </>
-                                    )}
-                                    <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} disabled={isReadOnly} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="modal-footer">
-                        {isReadOnly ? (
-                            <button type="button" className="btn btn-primary" onClick={onClose}>Đóng</button>
-                        ) : (
-                            <>
-                                <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                                <button type="submit" className="btn btn-primary" disabled={loading}>
-                                    <Save size={14} /> {loading ? "Đang lưu..." : "Lưu bản ghi"}
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
-
 /* ─── Main Page ─── */
 export default function MeterReadingPage() {
+    const navigate = useNavigate();
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState("");
     const [buildings, setBuildings] = useState([]);
@@ -268,8 +43,6 @@ export default function MeterReadingPage() {
     const [readings, setReadings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [editData, setEditData] = useState(null);
     const [toasts, setToasts] = useState([]);
 
     const [expandedFloors, setExpandedFloors] = useState({});
@@ -282,39 +55,31 @@ export default function MeterReadingPage() {
         setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
     }, []);
 
-    // 1. Tải danh sách Dịch Vụ và Tòa Nhà khi mới quay vào trang
+    // 1. Load Services and Buildings
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                // Tải Dịch Vụ
                 const resService = await serviceApi.getAll(true);
                 const serviceList = resService.data?.result || [];
                 setServices(serviceList);
-                if (serviceList.length > 0) {
-                    setSelectedService(serviceList[0].id);
-                }
+                if (serviceList.length > 0) setSelectedService(serviceList[0].id);
 
-                // Tải Tòa Nhà
                 const resBuilding = await fetchBuildings(0, 1000);
                 const buildingList = resBuilding.result?.content || resBuilding.result || resBuilding || [];
                 setBuildings(buildingList);
-                if (buildingList.length > 0) {
-                    setSelectedBuilding(buildingList[0].id);
-                }
+                if (buildingList.length > 0) setSelectedBuilding(buildingList[0].id);
             } catch (error) {
                 addToast("Lỗi khi tải dữ liệu khởi tạo", "error");
             }
         };
-
         loadInitialData();
     }, [addToast]);
 
-    // 2. Tải danh sách Căn Hộ mỗi khi Tòa Nhà thay đổi
+    // 2. Load Apartments when building changes
     useEffect(() => {
         if (!selectedBuilding) return;
-
         const loadApartments = async () => {
-            setBuildingApartments([]); // Clear danh sách cũ
+            setBuildingApartments([]);
             try {
                 const res = await fetchApartmentsByBuilding(selectedBuilding);
                 setBuildingApartments(res.result || res.data || []);
@@ -322,12 +87,11 @@ export default function MeterReadingPage() {
                 console.error("Lỗi khi tải căn hộ:", err);
             }
         };
-
         loadApartments();
     }, [selectedBuilding]);
 
-    // 3. Tải Chỉ Số Đồng Hồ mỗi khi Kỳ Thanh Toán hoặc Dịch Vụ thay đổi
-    const fetchReadings = async () => {
+    // 3. Load Readings when service or period changes
+    const fetchReadings = useCallback(async () => {
         if (!selectedService || !period) return;
         setLoading(true);
         try {
@@ -338,13 +102,11 @@ export default function MeterReadingPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedService, period, addToast]);
 
     useEffect(() => {
         fetchReadings();
-    }, [selectedService, period]);
-
-    // Helper functions cho thao tác UI đã bị gỡ bỏ, chỉ giữ lại API Load
+    }, [fetchReadings]);
 
     const handleSaveAll = async () => {
         const modified = readings.filter((r) => r.isModified && (r.status === "DRAFT" || r.status === "UNRECORDED"));
@@ -407,24 +169,6 @@ export default function MeterReadingPage() {
                     if (existingIndex >= 0) {
                         const r = newReadings[existingIndex];
                         newReadings[existingIndex] = { ...r, newIndex: match.ChiSoMoi, usage: newIdx - (r.oldIndex || 0), isModified: true, status: r.status === "UNRECORDED" ? "DRAFT" : r.status };
-                    } else {
-                        const apt = buildingApartments.find(a => a.code === aptCode);
-                        if (apt) {
-                            newReadings.push({
-                                id: "temp-" + apt.id,
-                                apartmentId: apt.id,
-                                apartmentCode: apt.code,
-                                buildingId: apt.buildingId,
-                                period: period,
-                                serviceId: selectedService,
-                                status: "DRAFT",
-                                oldIndex: match.ChiSoCu || 0,
-                                newIndex: match.ChiSoMoi,
-                                usage: newIdx - (match.ChiSoCu || 0),
-                                isModified: true,
-                                isPlaceholder: true
-                            });
-                        }
                     }
                 });
                 return newReadings;
@@ -493,13 +237,8 @@ export default function MeterReadingPage() {
         }));
     }, [readings, buildings, selectedBuilding, buildingApartments, period, selectedService]);
 
-    const toggleFloor = (floor) => {
-        setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
-    };
-
-    const toggleApt = (id) => {
-        setExpandedApts(prev => ({ ...prev, [id]: !prev[id] }));
-    };
+    const toggleFloor = (floor) => setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
+    const toggleApt = (id) => setExpandedApts(prev => ({ ...prev, [id]: !prev[id] }));
 
     const activeSvc = services.find(s => s.id === selectedService);
 
@@ -534,7 +273,7 @@ export default function MeterReadingPage() {
                         </select>
                     </div>
                     <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem" }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setEditData(null); setShowAddModal(true); }} disabled={!selectedService}>
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate(`/meter-readings/create?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)} disabled={!selectedService}>
                             <Plus size={14} /> Thêm chỉ số
                         </button>
                     </div>
@@ -613,7 +352,7 @@ export default function MeterReadingPage() {
                                                                                     </>
                                                                                 )}
                                                                                 <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>TRẠNG THÁI</th>
-                                                                                <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>ACTIONS</th>
+                                                                                <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>HÀNH ĐỘNG</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
@@ -642,15 +381,9 @@ export default function MeterReadingPage() {
                                                                                 ) : (
                                                                                     <>
                                                                                         <td style={{ textAlign: "left", paddingLeft: "1.5rem", color: "#475569" }}>
-                                                                                            {activeSvc?.billingMethod === "AREA" ? (
-                                                                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
-                                                                                                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>THEO DIỆN TÍCH</span>
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
-                                                                                                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>CỐ ĐỊNH</span>
-                                                                                                </span>
-                                                                                            )}
+                                                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
+                                                                                                <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{activeSvc?.billingMethod === "AREA" ? "THEO DIỆN TÍCH" : "CỐ ĐỊNH"}</span>
+                                                                                            </span>
                                                                                         </td>
                                                                                         <td style={{ textAlign: "left", color: "#64748b", fontSize: "0.85rem" }}>
                                                                                             {r.note || <span style={{ fontStyle: "italic", opacity: 0.5 }}>-</span>}
@@ -663,34 +396,27 @@ export default function MeterReadingPage() {
                                                                                 <td style={{ textAlign: "center" }}>
                                                                                     <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}>
                                                                                         {r.status === "UNRECORDED" ? (
-                                                                                            <button className="icon-btn success" title="Thêm chỉ số" onClick={() => { setEditData(r); setShowAddModal(true); }}>
+                                                                                            <button className="icon-btn success" title="Thêm chỉ số" onClick={() => navigate(`/meter-readings/create?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}&apartmentId=${r.apartmentId}`)}>
                                                                                                 <Plus size={15} />
                                                                                             </button>
                                                                                         ) : r.status === "DRAFT" ? (
                                                                                             <>
                                                                                                 <button className="icon-btn success" title="Xác nhận" onClick={() => meterReadingApi.confirm(r.id).then(fetchReadings)}><CheckCircle size={15} /></button>
-                                                                                                <button className="icon-btn primary" title="Sửa" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                                <button className="icon-btn primary" title="Sửa" onClick={() => navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)}><Edit2 size={15} /></button>
                                                                                             </>
                                                                                         ) : r.status === "CONFIRMED" ? (
                                                                                             <>
                                                                                                 <button className="icon-btn warning" title="Khóa" onClick={() => meterReadingApi.lock(r.id).then(fetchReadings)}><Lock size={15} /></button>
-                                                                                                <button className="icon-btn primary" title="Xem" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                                <button className="icon-btn primary" title="Xem/Sửa" onClick={() => navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)}><Edit2 size={15} /></button>
                                                                                             </>
                                                                                         ) : (
-                                                                                            <button className="icon-btn primary" title="Xem chi tiết" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                            <button className="icon-btn primary" title="Xem chi tiết" onClick={() => navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)}><Edit2 size={15} /></button>
                                                                                         )}
                                                                                     </div>
                                                                                 </td>
                                                                             </tr>
                                                                         </tbody>
                                                                     </table>
-                                                                    {r.note && r.status !== "UNRECORDED" && (
-                                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1rem" }}>
-                                                                            <div style={{ flex: 1, padding: "0.75rem", backgroundColor: "#f1f5f9", borderRadius: "0.5rem", fontSize: "0.875rem", color: "#475569" }}>
-                                                                                <strong style={{ color: "#334155" }}>Ghi chú:</strong> {r.note}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -704,27 +430,11 @@ export default function MeterReadingPage() {
                 </div>
             </div>
 
-            {showAddModal && (
-                <ManualReadingModal
-                    service={services.find(s => s.id === selectedService)}
-                    period={period}
-                    apartments={buildingApartments}
-                    initialData={editData}
-                    onSaved={() => {
-                        setShowAddModal(false);
-                        fetchReadings();
-                        addToast(editData?.id && !editData?.isPlaceholder ? "Cập nhật thành công!" : "Đã thêm chỉ số mới!");
-                    }}
-                    onClose={() => setShowAddModal(false)}
-                    onError={msg => addToast(msg, "error")}
-                />
-            )}
-
             <Toast toasts={toasts} onRemove={id => setToasts(prev => prev.filter(t => t.id !== id))} />
             <style>{`
-        .row--modified { background-color: #f0f9ff; }
-        .form-checkbox { width: 16px; height: 16px; cursor: pointer; }
-      `}</style>
+                .row--modified { background-color: #f0f9ff; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

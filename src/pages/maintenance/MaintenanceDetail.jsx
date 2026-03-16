@@ -25,6 +25,8 @@ import {
     Trash2
 } from "lucide-react";
 import maintenanceApi from "../../api/maintenanceApi";
+import { fetchUsers } from "../../services/userApi";
+import toast from "react-hot-toast";
 
 /**
  * STATUS_MAP using project-standard badge classes from index.css
@@ -42,10 +44,20 @@ const STATUS_MAP = {
 
 const PRIORITY_MAP = {
     LOW:    { label: "Thấp",    color: "var(--color-text-muted)" },
+    NORMAL: { label: "Bình thường", color: "#2563eb" },
     MEDIUM: { label: "Trung bình", color: "#d97706" },
     HIGH:   { label: "Cao",     color: "#ea580c" },
     URGENT: { label: "Khẩn cấp", color: "var(--color-danger)" },
     CRITICAL: { label: "Nghiêm trọng", color: "var(--color-danger)" }
+};
+
+const QUOTATION_STATUS_MAP = {
+    DRAFT: "Nháp",
+    SENT: "Đã gửi",
+    APPROVED: "Đã duyệt",
+    REJECTED: "Bị từ chối",
+    CANCELLED: "Đã huỷ",
+    EXPIRED: "Hết hạn"
 };
 
 export default function MaintenanceDetail() {
@@ -65,7 +77,10 @@ export default function MaintenanceDetail() {
     // Modals State
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assignStaffId, setAssignStaffId] = useState("");
+    const [assignNote, setAssignNote] = useState("");
     const [isAssigning, setIsAssigning] = useState(false);
+    const [staffOptions, setStaffOptions] = useState([]);
+    const [staffWorkloadMap, setStaffWorkloadMap] = useState({});
 
     const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
     const [cancelReason, setCancelReason] = useState("");
@@ -95,15 +110,65 @@ export default function MaintenanceDetail() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
+    useEffect(() => {
+        const loadStaffOptions = async () => {
+            const [userResult, workloadResult] = await Promise.allSettled([
+                fetchUsers({ page: 1, size: 200, status: "ACTIVE" }),
+                maintenanceApi.getStaffWorkload(),
+            ]);
+
+            if (userResult.status === "fulfilled") {
+                const users = userResult.value?.result?.content || [];
+                const staffs = users.filter((u) =>
+                    Array.isArray(u.roles)
+                    && u.roles.some((r) => {
+                        const code = String(r.roleCode || "").toUpperCase();
+                        const name = String(r.roleName || "").toUpperCase();
+                        return code === "STAFF" || name === "STAFF" || name.includes("NHAN VIEN");
+                    })
+                );
+                setStaffOptions(staffs);
+            } else {
+                setStaffOptions([]);
+            }
+
+            if (workloadResult.status === "fulfilled") {
+                const workloads = workloadResult.value?.data?.result || [];
+                const mapByStaffId = workloads.reduce((acc, workload) => {
+                    acc[String(workload.staffId)] = workload;
+                    return acc;
+                }, {});
+                setStaffWorkloadMap(mapByStaffId);
+            } else {
+                setStaffWorkloadMap({});
+            }
+        };
+
+        loadStaffOptions();
+    }, []);
+
+    const openAssignModal = () => {
+        setAssignStaffId(request?.staffId ? String(request.staffId) : "");
+        setAssignNote("");
+        setIsAssignModalOpen(true);
+    };
+
     const handleAssign = async () => {
         if (!assignStaffId) return;
         setIsAssigning(true);
         try {
-            await maintenanceApi.assignRequest(id, { staffId: assignStaffId });
+            const payload = { staffId: assignStaffId };
+            const trimmedNote = assignNote.trim();
+            if (trimmedNote) {
+                payload.note = trimmedNote;
+            }
+            await maintenanceApi.assignRequest(id, payload);
+            setAssignStaffId("");
+            setAssignNote("");
             setIsAssignModalOpen(false);
             fetchData();
         } catch (err) {
-            alert("Lỗi khi giao việc: " + err.message);
+            toast.error("Lỗi khi giao việc: " + err.message);
         } finally {
             setIsAssigning(false);
         }
@@ -116,7 +181,7 @@ export default function MaintenanceDetail() {
             setIsCancelModalOpen(false);
             fetchData();
         } catch (err) {
-            alert("Lỗi khi huỷ: " + err.message);
+            toast.error("Lỗi khi huỷ: " + err.message);
         } finally {
             setIsCanceling(false);
         }
@@ -128,6 +193,25 @@ export default function MaintenanceDetail() {
         return full 
             ? date.toLocaleString('vi-VN')
             : date.toLocaleDateString('vi-VN');
+    };
+
+    const toNumber = (value) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const formatCurrency = (value) => `${toNumber(value).toLocaleString("vi-VN")} đ`;
+
+    const getQuotationTotal = (quotation) => {
+        if (quotation?.totalAmount != null) {
+            return toNumber(quotation.totalAmount);
+        }
+        if (!Array.isArray(quotation?.items)) {
+            return 0;
+        }
+        return quotation.items.reduce((sum, item) => {
+            return sum + toNumber(item?.unitPrice) * toNumber(item?.quantity);
+        }, 0);
     };
 
     if (loading) {
@@ -155,8 +239,17 @@ export default function MaintenanceDetail() {
         );
     }
 
-    const s = STATUS_MAP[request.status] || { label: request.status, cssClass: "badge--locked" };
+    const currentStatus = request.requestStatus || request.status;
+    const assignedStaffName = request.staffName || request.assignedStaffName;
+    const residentName = request.requesterName || request.residentName;
+    const desiredTime = request.preferredTime || request.desiredTime;
+    const categoryName = request.categoryName || request.category;
+
+    const s = STATUS_MAP[currentStatus] || { label: currentStatus, cssClass: "badge--locked" };
     const p = PRIORITY_MAP[request.priority] || { label: request.priority, color: "var(--color-text)" };
+    const canAssign = ['PENDING', 'VERIFYING'].includes(currentStatus);
+    const selectedStaffWorkload = assignStaffId ? staffWorkloadMap[String(assignStaffId)] : null;
+    const assignLogs = logs.filter((log) => ["ASSIGN_REQUEST", "ASSIGNED_STAFF"].includes(log.action));
 
     return (
         <div className="maintenance-detail-container">
@@ -181,10 +274,10 @@ export default function MaintenanceDetail() {
                     </div>
 
                     <div style={{ display: "flex", gap: "0.5rem" }}>
-                        {['PENDING', 'VERIFYING'].includes(request.status) && (
+                        {canAssign && (
                             <>
-                                <button className="btn btn-primary" onClick={() => setIsAssignModalOpen(true)}>
-                                    <UserPlus size={16} /> Giao việc
+                                <button className="btn btn-primary" onClick={openAssignModal}>
+                                    <UserPlus size={16} /> {assignedStaffName ? "Giao lại" : "Giao việc"}
                                 </button>
                                 <button className="btn btn-danger" onClick={() => setIsCancelModalOpen(true)}>
                                     <Trash2 size={16} /> Huỷ yêu cầu
@@ -262,7 +355,7 @@ export default function MaintenanceDetail() {
                                                     <p style={{ fontSize: "0.75rem", color: "var(--color-text-muted)" }}>Ngày tạo: {formatDate(q.createdAt)}</p>
                                                 </div>
                                                 <span className={`badge ${q.status === 'APPROVED' ? 'badge--active' : q.status === 'REJECTED' ? 'badge--inactive' : 'badge--draft'}`}>
-                                                    {q.status}
+                                                    {QUOTATION_STATUS_MAP[q.status] || q.status}
                                                 </span>
                                             </div>
                                             <div className="card-body p-0">
@@ -279,9 +372,9 @@ export default function MaintenanceDetail() {
                                                         {q.items?.map((item, idx) => (
                                                             <tr key={idx}>
                                                                 <td style={{ fontWeight: 500 }}>{item.name}</td>
-                                                                <td style={{ textAlign: "center" }}>{item.quantity}</td>
-                                                                <td style={{ textAlign: "right" }}>{item.unitPrice?.toLocaleString()} đ</td>
-                                                                <td style={{ textAlign: "right", fontWeight: 600 }}>{(item.unitPrice * item.quantity).toLocaleString()} đ</td>
+                                                                <td style={{ textAlign: "center" }}>{toNumber(item.quantity)}</td>
+                                                                <td style={{ textAlign: "right" }}>{formatCurrency(item.unitPrice)}</td>
+                                                                <td style={{ textAlign: "right", fontWeight: 600 }}>{formatCurrency(toNumber(item.unitPrice) * toNumber(item.quantity))}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -289,7 +382,7 @@ export default function MaintenanceDetail() {
                                             </div>
                                             <div className="card-body" style={{ background: "#f8fafc", textAlign: "right", borderTop: "1px solid var(--color-border)" }}>
                                                 <span style={{ fontSize: "0.875rem", color: "var(--color-text-muted)", marginRight: "1rem" }}>TỔNG CỘNG:</span>
-                                                <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--color-primary)" }}>{q.totalAmount?.toLocaleString()} đ</span>
+                                                <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "var(--color-primary)" }}>{formatCurrency(getQuotationTotal(q))}</span>
                                             </div>
                                         </div>
                                     )) : (
@@ -311,16 +404,22 @@ export default function MaintenanceDetail() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {logs.map((log) => (
-                                                <tr key={log.id}>
-                                                    <td style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{formatDate(log.createdAt)}</td>
-                                                    <td>
-                                                        <div style={{ fontWeight: 600 }}>{log.action}</div>
-                                                        {log.note && <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>{log.note}</div>}
-                                                    </td>
-                                                    <td>{log.actorName || "Hệ thống"}</td>
-                                                </tr>
-                                            ))}
+                                            {logs.map((log) => {
+                                                const isAssignLog = log.action === "ASSIGN_REQUEST";
+                                                return (
+                                                    <tr key={log.id} style={isAssignLog ? { background: "#fefce8" } : undefined}>
+                                                        <td style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>{formatDate(log.createdAt)}</td>
+                                                        <td>
+                                                            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                                                {log.action}
+                                                                {isAssignLog && <span className="badge badge--draft">Giao việc</span>}
+                                                            </div>
+                                                            {log.note && <div style={{ fontSize: "0.75rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>{log.note}</div>}
+                                                        </td>
+                                                        <td>{log.actorName || "Hệ thống"}</td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -341,12 +440,12 @@ export default function MaintenanceDetail() {
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Cư dân</label>
                                 <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <User size={16} /> {request.residentName || "N/A"}
+                                    <User size={16} /> {residentName || "N/A"}
                                 </div>
                             </div>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Danh mục</label>
-                                <div style={{ fontWeight: 600 }}>{request.categoryName || "Khác"}</div>
+                                <div style={{ fontWeight: 600 }}>{categoryName || "Khác"}</div>
                             </div>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Mức độ ưu tiên</label>
@@ -364,16 +463,38 @@ export default function MaintenanceDetail() {
                         <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Nhân viên kỹ thuật</label>
-                                <div style={{ fontWeight: 700, color: request.assignedStaffName ? "var(--color-text)" : "var(--color-primary)" }}>
-                                    {request.assignedStaffName || "Chưa phân công"}
+                                <div style={{ fontWeight: 700, color: assignedStaffName ? "var(--color-text)" : "var(--color-primary)" }}>
+                                    {assignedStaffName || "Chưa phân công"}
                                 </div>
+                                {canAssign && (
+                                    <button
+                                        className="btn btn-primary btn-sm"
+                                        onClick={openAssignModal}
+                                        style={{ marginTop: "0.5rem" }}
+                                    >
+                                        <UserPlus size={14} /> {assignedStaffName ? "Giao lại nhân viên" : "Giao việc ngay"}
+                                    </button>
+                                )}
                             </div>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Thời gian mong muốn</label>
                                 <div style={{ fontSize: "0.9rem", color: "var(--color-text)" }}>
-                                    {formatDate(request.desiredTime)}
+                                    {formatDate(desiredTime)}
                                 </div>
                             </div>
+                            {assignLogs.length > 0 && (
+                                <div>
+                                    <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Lịch sử giao việc gần nhất</label>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                                        {assignLogs.slice(0, 3).map((log) => (
+                                            <div key={log.id} style={{ background: "#f8fafc", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.625rem" }}>
+                                                <div style={{ fontWeight: 600, fontSize: "0.8rem" }}>{formatDate(log.createdAt)}</div>
+                                                <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.25rem" }}>{log.note || "Không có ghi chú"}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -382,29 +503,68 @@ export default function MaintenanceDetail() {
             {/* Modals - Using Project Modal Classes */}
             {isAssignModalOpen && (
                 <div className="modal-overlay">
-                    <div className="card" style={{ width: "100%", maxWidth: "450px" }}>
+                    <div className="card" style={{ width: "100%", maxWidth: "560px" }}>
                         <div className="card-body" style={{ background: "#f8fafc", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between" }}>
-                            <h3 style={{ fontWeight: 700 }}>Phân công nhân viên</h3>
+                            <h3 style={{ fontWeight: 700 }}>{assignedStaffName ? "Giao lại nhân viên" : "Phân công nhân viên"}</h3>
                             <button onClick={() => setIsAssignModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer" }}>
                                 <X size={20} color="var(--color-text-muted)" />
                             </button>
                         </div>
                         <div className="card-body">
                             <div className="form-group">
-                                <label className="form-label">Mã nhân viên (Staff ID)</label>
-                                <input 
-                                    type="text" 
+                                <label className="form-label">Chọn nhân viên kỹ thuật</label>
+                                <select
                                     className="form-input" 
-                                    placeholder="Nhập mã nhân viên phụ trách..."
                                     value={assignStaffId}
                                     onChange={(e) => setAssignStaffId(e.target.value)}
+                                >
+                                    <option value="">-- Chọn nhân viên --</option>
+                                    {staffOptions.map((staff) => {
+                                        const workload = staffWorkloadMap[String(staff.id)];
+                                        const workloadText = workload
+                                            ? ` | Đang xử lý: ${workload.inProgress || 0}, Quá hạn: ${workload.overdueCount || 0}`
+                                            : "";
+                                        return (
+                                            <option key={staff.id} value={staff.id}>
+                                                {staff.fullName} - {staff.email}{workloadText}
+                                            </option>
+                                        );
+                                    })}
+                                </select>
+                                {staffOptions.length === 0 && (
+                                    <div style={{ fontSize: "0.78rem", color: "var(--color-text-muted)", marginTop: "0.4rem" }}>
+                                        Chưa tải được danh sách nhân viên. Vui lòng kiểm tra tài khoản STAFF hoặc tải lại trang.
+                                    </div>
+                                )}
+                            </div>
+
+                            {selectedStaffWorkload && (
+                                <div style={{ background: "#f8fafc", border: "1px solid var(--color-border)", borderRadius: "var(--radius)", padding: "0.9rem", marginBottom: "1rem" }}>
+                                    <div style={{ fontWeight: 700, fontSize: "0.85rem", marginBottom: "0.5rem" }}>Khối lượng công việc nhân viên đã chọn</div>
+                                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "0.5rem" }}>
+                                        <div style={{ fontSize: "0.8rem" }}>Tổng đã giao: <strong>{selectedStaffWorkload.totalAssigned || 0}</strong></div>
+                                        <div style={{ fontSize: "0.8rem" }}>Đang xử lý: <strong>{selectedStaffWorkload.inProgress || 0}</strong></div>
+                                        <div style={{ fontSize: "0.8rem" }}>Quá hạn: <strong>{selectedStaffWorkload.overdueCount || 0}</strong></div>
+                                        <div style={{ fontSize: "0.8rem" }}>Đánh giá TB: <strong>{selectedStaffWorkload.avgRating ?? "-"}</strong></div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="form-group">
+                                <label className="form-label">Ghi chú giao việc (tuỳ chọn)</label>
+                                <textarea
+                                    className="form-textarea"
+                                    rows="3"
+                                    placeholder="Ví dụ: Ưu tiên xử lý trước 17h, liên hệ cư dân trước khi đến..."
+                                    value={assignNote}
+                                    onChange={(e) => setAssignNote(e.target.value)}
                                 />
                             </div>
                         </div>
                         <div className="card-body" style={{ display: "flex", justifyContent: "flex-end", gap: "0.75rem", background: "#f8fafc", borderTop: "1px solid var(--color-border)" }}>
                             <button className="btn btn-ghost" onClick={() => setIsAssignModalOpen(false)}>Hủy</button>
                             <button className="btn btn-primary" onClick={handleAssign} disabled={isAssigning || !assignStaffId}>
-                                {isAssigning ? "Đang xử lý..." : "Xác nhận giao việc"}
+                                {isAssigning ? "Đang xử lý..." : assignedStaffName ? "Xác nhận giao lại" : "Xác nhận giao việc"}
                             </button>
                         </div>
                     </div>

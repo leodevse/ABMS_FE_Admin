@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 // Import thêm hàm moveOutResident từ service của bạn
 import { getApartmentById, moveOutResident } from "../../services/apartmentApi";
+import toast from "react-hot-toast";
 
 export default function ApartmentDetail() {
   const { id } = useParams();
@@ -54,12 +55,12 @@ export default function ApartmentDetail() {
     setActionLoading(true);
     try {
       await moveOutResident(residentId);
-      alert("Đã cập nhật cư dân rời đi thành công!");
+      toast.success("Đã cập nhật cư dân rời đi thành công!");
       // Gọi lại hàm fetchDetail để cập nhật danh sách cư dân và Trạng thái căn hộ (AVAILABLE/OCCUPIED)
       await fetchDetail();
     } catch (err) {
       console.error("Lỗi khi xử lý rời đi:", err);
-      alert(
+      toast.error(
         err.response?.data?.message ||
           "Có lỗi xảy ra khi thực hiện thao tác này.",
       );

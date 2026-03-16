@@ -6,6 +6,13 @@ import {
 } from "lucide-react";
 import { fetchApartmentsWithFilters } from "../../services/apartmentApi";
 
+const APARTMENT_STATUS_MAP = {
+    AVAILABLE: "Trống",
+    OCCUPIED: "Đang ở",
+    MAINTENANCE: "Bảo trì",
+    INACTIVE: "Tạm khoá",
+};
+
 export default function ApartmentListByBuilding() {
     const { buildingId } = useParams();
     const navigate = useNavigate();
@@ -212,7 +219,7 @@ export default function ApartmentListByBuilding() {
                                                 apt.status === 'OCCUPIED' ? 'badge--confirmed' : 
                                                 apt.status === 'MAINTENANCE' ? 'badge--draft' : 'badge--inactive'
                                             }`}>
-                                                {apt.status}
+                                                {APARTMENT_STATUS_MAP[apt.status] || apt.status}
                                             </span>
                                         </td>
                                         <td style={{ textAlign: "right", paddingRight: "1.5rem" }}>

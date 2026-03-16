@@ -6,6 +6,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { createBuilding } from "../../services/buildingApi";
+import toast from "react-hot-toast";
 
 export default function AddBuilding() {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ export default function AddBuilding() {
     try {
       const res = await createBuilding(formData);
       if (res.code === 200 || res.code === 201) {
-        alert("Thêm tòa nhà thành công!");
+        toast.success("Thêm tòa nhà thành công!");
         navigate("/buildings");
       } else {
         setError(res.message || "Có lỗi xảy ra khi tạo tòa nhà.");
