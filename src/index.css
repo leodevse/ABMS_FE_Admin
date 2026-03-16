@@ -6,6 +6,7 @@
    ============================================ */
 
 :root {
+  --radius-component: 0.75rem;
   --color-primary: #1d4ed8;
   /* blue-700 – brand chính */
   --color-primary-dark: #1e40af;
@@ -24,9 +25,27 @@
   --color-success: #16a34a;
   --color-danger: #dc2626;
   --color-warning: #d97706;
-  --radius: 0.5rem;
+  --radius: var(--radius-component);
   --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.rounded,
+.rounded-sm,
+.rounded-md,
+.rounded-lg,
+.rounded-xl,
+.rounded-2xl,
+.rounded-3xl {
+  border-radius: var(--radius-component);
+}
+
+[class*="rounded-["] {
+  border-radius: var(--radius-component) !important;
+}
+
+[style*="border-radius"]:not([style*="50%"]):not([style*="999"]) {
+  border-radius: var(--radius-component) !important;
 }
 
 * {

@@ -9,6 +9,7 @@ import {
   fetchRoles, 
   getUserById 
 } from "../../services/userApi"; 
+import toast from "react-hot-toast";
 
 export default function UserForm() {
   const { id } = useParams();
@@ -69,7 +70,7 @@ export default function UserForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.roleCode) {
-      alert("Vui lòng chọn vai trò!");
+      toast.error("Vui lòng chọn vai trò!");
       return;
     }
 
@@ -101,11 +102,11 @@ export default function UserForm() {
       const res = isEdit ? await updateUser(id, payload) : await createUser(payload);
 
       if (res?.code === 200 || res) {
-        alert(isEdit ? "Cập nhật thành công!" : "Thêm mới thành công!");
+        toast.success(isEdit ? "Cập nhật thành công!" : "Thêm mới thành công!");
         navigate("/users");
       }
     } catch (err) {
-      alert("Lỗi: " + (err.message || "Có lỗi xảy ra khi lưu"));
+      toast.error("Lỗi: " + (err.message || "Có lỗi xảy ra khi lưu"));
     } finally {
       setLoading(false);
     }

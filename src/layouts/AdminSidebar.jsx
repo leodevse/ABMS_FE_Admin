@@ -1,10 +1,12 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
     LayoutDashboard,
     Settings,
     Gauge,
     Wrench,
-    Home,    Users
+    Home,    Users,
+    AlertTriangle,
+    UsersRound
 
 } from "lucide-react";
 
@@ -26,6 +28,8 @@ const navItems = [
         section: "Bảo trì",
         items: [
             { to: "/maintenance", icon: Wrench, label: "Yêu cầu bảo trì" },
+            { to: "/maintenance/workload", icon: UsersRound, label: "Khối lượng nhân viên" },
+            { to: "/maintenance/overdue", icon: AlertTriangle, label: "Yêu cầu quá hạn" },
         ],
     },
     {
@@ -49,6 +53,21 @@ const navItems = [
 ];
 
 export default function AdminSidebar() {
+    const { pathname } = useLocation();
+
+    const isItemActive = (to, isActive) => {
+        if (to === "/maintenance") {
+            return pathname === "/maintenance" || /^\/maintenance\/[^/]+$/.test(pathname);
+        }
+        if (to === "/maintenance/workload") {
+            return pathname === "/maintenance/workload";
+        }
+        if (to === "/maintenance/overdue") {
+            return pathname === "/maintenance/overdue";
+        }
+        return isActive;
+    };
+
     return (
         <aside className="admin-sidebar">
             {navItems.map((group) => (
@@ -59,7 +78,7 @@ export default function AdminSidebar() {
                             key={to}
                             to={to}
                             className={({ isActive }) =>
-                                "admin-sidebar__nav-item" + (isActive ? " active" : "")
+                                "admin-sidebar__nav-item" + (isItemActive(to, isActive) ? " active" : "")
                             }
                         >
                             <Icon className="nav-icon" />

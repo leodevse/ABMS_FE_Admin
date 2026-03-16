@@ -5,6 +5,8 @@ import ServiceListPage from "../pages/service/ServiceListPage";
 import MeterReadingPage from "../pages/meter/MeterReadingPage";
 import MaintenancePage from "../pages/maintenance/MaintenancePage";
 import MaintenanceDetail from "../pages/maintenance/MaintenanceDetail";
+import StaffWorkloadPage from "../pages/maintenance/StaffWorkloadPage";
+import OverdueRequestsPage from "../pages/maintenance/OverdueRequestsPage";
 import Login from "../pages/auth/Login";
 import ProtectedRoute from "../context/ProtectedRoute";
 import BuildingList from "../pages/building/BuildingList";
@@ -62,6 +64,14 @@ const AppRouter = createBrowserRouter([
       {
         path: "maintenance/:id",
         element: <MaintenanceDetail />,
+      },
+      {
+        path: "maintenance/workload",
+        element: <StaffWorkloadPage />,
+      },
+      {
+        path: "maintenance/overdue",
+        element: <OverdueRequestsPage />,
       },
 
       // Building

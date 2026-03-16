@@ -5,6 +5,7 @@ import {
   CheckCircle2, AlertCircle, Eye, X, Loader2, Mail, Phone, Shield, UserCheck,
 } from "lucide-react";
 import { fetchUsers, deactivateUser } from "../../services/userApi"; 
+import toast from "react-hot-toast";
 
 export default function UserList() {
   const navigate = useNavigate();
@@ -79,11 +80,11 @@ export default function UserList() {
       try {
         const res = await deactivateUser(id);
         if (res?.code === 200 || res) {
-          alert("Thao tác thành công!");
+          toast.success("Thao tác thành công!");
           loadUsers();
         }
       } catch (error) {
-        alert("Lỗi: " + (error.message || "Không thể thực hiện"));
+        toast.error("Lỗi: " + (error.message || "Không thể thực hiện"));
       }
     }
   };

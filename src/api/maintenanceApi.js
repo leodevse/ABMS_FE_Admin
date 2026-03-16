@@ -26,10 +26,10 @@ const maintenanceApi = {
 
   // Workflow
   getQuotationsByRequestId: (id) =>
-    axiosClient.get(`/maintenance-requests/${id}/quotations`),
+    axiosClient.get(`/maintenance-workflows/${id}/quotations`),
 
   getLogs: (id) =>
-    axiosClient.get(`/maintenance-requests/${id}/logs`),
+    axiosClient.get(`/maintenance-workflows/${id}/logs`),
 };
 
 export default maintenanceApi;

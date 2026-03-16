@@ -6,8 +6,9 @@ import {
     ArrowRight,
     CheckCircle2,
     Clock,
-    Lock,
     AlertCircle,
+    PieChart,
+    Layers,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import React, { useState, useEffect } from "react";
@@ -55,6 +56,30 @@ export default function DashboardPage() {
         };
         fetchStats();
     }, []);
+
+    const statusData = [
+        { key: "PENDING", label: "Chờ xử lý", color: "#f59e0b" },
+        { key: "IN_PROGRESS", label: "Đang xử lý", color: "#2563eb" },
+        { key: "COMPLETED", label: "Hoàn thành", color: "#16a34a" },
+        { key: "CANCELLED", label: "Đã huỷ", color: "#dc2626" },
+    ].map((item) => ({
+        ...item,
+        value: maintenanceStats?.byStatus?.[item.key] ?? 0,
+    }));
+
+    const categoryData = [
+        { key: "REPAIR", label: "Sửa chữa" },
+        { key: "MAINTENANCE", label: "Bảo trì" },
+        { key: "SERVICE", label: "Dịch vụ" },
+        { key: "CLEANING", label: "Vệ sinh" },
+        { key: "OTHER", label: "Khác" },
+    ].map((item) => ({
+        ...item,
+        value: maintenanceStats?.byCategory?.[item.key] ?? 0,
+    }));
+
+    const maxStatus = Math.max(1, ...statusData.map((d) => d.value));
+    const maxCategory = Math.max(1, ...categoryData.map((d) => d.value));
 
     return (
         <div>
@@ -121,6 +146,48 @@ export default function DashboardPage() {
                             {loading ? "..." : (maintenanceStats?.byStatus?.CANCELLED ?? 0)}
                         </div>
                         <div className="stat-card__label">Đã huỷ</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
+                <div className="card">
+                    <div className="card-body" style={{ borderBottom: "1px solid var(--color-border)", background: "#f8fafc", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <PieChart size={18} />
+                        <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>Biểu đồ theo trạng thái</h3>
+                    </div>
+                    <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {statusData.map((item) => (
+                            <div key={item.key}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.3rem" }}>
+                                    <span style={{ fontWeight: 600 }}>{item.label}</span>
+                                    <span>{item.value}</span>
+                                </div>
+                                <div style={{ height: 8, background: "#e2e8f0", borderRadius: 999 }}>
+                                    <div style={{ height: "100%", width: `${(item.value / maxStatus) * 100}%`, background: item.color, borderRadius: 999 }} />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="card">
+                    <div className="card-body" style={{ borderBottom: "1px solid var(--color-border)", background: "#f8fafc", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Layers size={18} />
+                        <h3 style={{ fontSize: "0.9rem", fontWeight: 700 }}>Biểu đồ theo danh mục</h3>
+                    </div>
+                    <div className="card-body" style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+                        {categoryData.map((item) => (
+                            <div key={item.key}>
+                                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", marginBottom: "0.3rem" }}>
+                                    <span style={{ fontWeight: 600 }}>{item.label}</span>
+                                    <span>{item.value}</span>
+                                </div>
+                                <div style={{ height: 8, background: "#e2e8f0", borderRadius: 999 }}>
+                                    <div style={{ height: "100%", width: `${(item.value / maxCategory) * 100}%`, background: "#6366f1", borderRadius: 999 }} />
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
