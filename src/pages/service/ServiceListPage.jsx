@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Search, Settings, RefreshCw, CircleSlash, CheckCircle } from "lucide-react";
-import { serviceApi } from "../../api/serviceApi";
-import ServiceFormModal from "./ServiceFormModal";
-import TariffModal from "./TariffModal";
+import { useNavigate } from "react-router-dom";
+import { serviceApi } from "../../services/serviceApi";
 
 // ── helpers ──────────────────────────────────────────────────
 const BILLING_LABEL = {
@@ -35,9 +34,7 @@ export default function ServiceListPage() {
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
 
-    // Modal state
-    const [formModal, setFormModal] = useState({ open: false, service: null }); // null = create
-    const [tariffModal, setTariffModal] = useState({ open: false, service: null });
+    const navigate = useNavigate();
 
     // Toast
     const [toasts, setToasts] = useState([]);
@@ -90,20 +87,10 @@ export default function ServiceListPage() {
         }
     };
 
-    // ── modal callbacks ───────────────────────────────────────
-    const onFormSaved = () => {
-        setFormModal({ open: false, service: null });
-        addToast(
-            formModal.service ? "Cập nhật dịch vụ thành công" : "Tạo dịch vụ thành công"
-        );
-        fetchServices();
-    };
-
-    const onTariffSaved = () => {
-        setTariffModal({ open: false, service: null });
-        addToast("Cập nhật biểu giá thành công");
-        fetchServices();
-    };
+    // Navigate to create/edit
+    const handleCreate = () => navigate("/service-config/create");
+    const handleEdit = (svc) => navigate(`/service-config/edit/${svc.id}`);
+    const handleViewTariff = (svc) => navigate(`/service-config/${svc.id}/tariff`);
 
     // ─────────────────────────────────────────────────────────
     return (
@@ -145,7 +132,7 @@ export default function ServiceListPage() {
                         </button>
                         <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => setFormModal({ open: true, service: null })}
+                            onClick={handleCreate}
                         >
                             <Plus size={16} />
                             Thêm dịch vụ
@@ -212,7 +199,7 @@ export default function ServiceListPage() {
                                             <td style={{ textAlign: "center" }}>
                                                 <button
                                                     className="btn btn-ghost btn-sm"
-                                                    onClick={() => setTariffModal({ open: true, service: svc })}
+                                                    onClick={() => handleViewTariff(svc)}
                                                     title="Cấu hình biểu giá"
                                                 >
                                                     Biểu giá
@@ -225,7 +212,7 @@ export default function ServiceListPage() {
                                                     <button
                                                         className="icon-btn"
                                                         title="Chỉnh sửa"
-                                                        onClick={() => setFormModal({ open: true, service: svc })}
+                                                        onClick={() => handleEdit(svc)}
                                                     >
                                                         ✏
                                                     </button>
@@ -255,23 +242,7 @@ export default function ServiceListPage() {
                 )}
             </div>
 
-            {/* Modals */}
-            {formModal.open && (
-                <ServiceFormModal
-                    service={formModal.service}
-                    onSaved={onFormSaved}
-                    onClose={() => setFormModal({ open: false, service: null })}
-                    onError={(msg) => addToast(msg, "error")}
-                />
-            )}
-            {tariffModal.open && (
-                <TariffModal
-                    service={tariffModal.service}
-                    onSaved={onTariffSaved}
-                    onClose={() => setTariffModal({ open: false, service: null })}
-                    onError={(msg) => addToast(msg, "error")}
-                />
-            )}
+            {/* Modals removed and replaced by pages */}
 
             <Toast toasts={toasts} />
 

@@ -20,6 +20,9 @@ import UserForm from "../pages/user/UserForm";
 import PaymentTransaction from "../pages/payment/PaymentTransaction";
 import PaymentDashboard from "../pages/payment/PaymentDashboard";
 import EditBuilding from "../pages/building/EditBuilding";
+import ServiceFormPage from "../pages/service/ServiceFormPage";
+import TariffPage from "../pages/service/TariffPage";
+import MeterReadingFormPage from "../pages/meter/MeterReadingFormPage";
 
 const AppRouter = createBrowserRouter([
   {
@@ -38,25 +41,41 @@ const AppRouter = createBrowserRouter([
         index: true,
         element: <Navigate to="/dashboard" replace />,
       },
-
       // Dashboard
       {
         path: "dashboard",
         element: <DashboardPage />,
       },
-
       // Services
       {
         path: "service-config",
         element: <ServiceListPage />,
       },
-
-      // Meter
+      {
+        path: "service-config/create",
+        element: <ServiceFormPage />,
+      },
+      {
+        path: "service-config/edit/:id",
+        element: <ServiceFormPage />,
+      },
+      {
+        path: "service-config/:serviceId/tariff",
+        element: <TariffPage />,
+      },
+      // Meter Readings
       {
         path: "meter-readings",
         element: <MeterReadingPage />,
       },
-
+      {
+        path: "meter-readings/create",
+        element: <MeterReadingFormPage />,
+      },
+      {
+        path: "meter-readings/edit/:id",
+        element: <MeterReadingFormPage />,
+      },
       // Maintenance
       {
         path: "maintenance",
@@ -74,7 +93,6 @@ const AppRouter = createBrowserRouter([
         path: "maintenance/overdue",
         element: <OverdueRequestsPage />,
       },
-
       // Building
       {
         path: "building",
@@ -84,7 +102,7 @@ const AppRouter = createBrowserRouter([
         path: "add-building",
         element: <AddBuilding />,
       },
-    {
+      {
         path: "buildings/edit/:id",
         element: <EditBuilding />,
       },
@@ -105,7 +123,6 @@ const AppRouter = createBrowserRouter([
         path: "apartments/:id/history",
         element: <ApartmentHistory />,
       },
-
       // Users
       {
         path: "users",
@@ -119,7 +136,6 @@ const AppRouter = createBrowserRouter([
         path: "users/edit/:id",
         element: <UserForm />,
       },
-
       // Payment
       {
         path: "payment",

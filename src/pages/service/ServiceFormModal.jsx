@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
-import { serviceApi } from "../../api/serviceApi";
+import { serviceApi } from "../../services/serviceApi";
 
 const BILLING_OPTIONS = [
     { value: "FIXED", label: "Fixed – Phí cố định" },
