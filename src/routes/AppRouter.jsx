@@ -20,6 +20,7 @@ import UserForm from "../pages/user/UserForm";
 import PaymentTransaction from "../pages/payment/PaymentTransaction";
 import PaymentDashboard from "../pages/payment/PaymentDashboard";
 import EditBuilding from "../pages/building/EditBuilding";
+import PaymentTransactionDetail from "../pages/payment/PaymentTransactionDetail.jsx";
 
 const AppRouter = createBrowserRouter([
   {
@@ -120,17 +121,21 @@ const AppRouter = createBrowserRouter([
         element: <UserForm />,
       },
 
-      // Payment
-      {
-        path: "payment",
-        element: <PaymentTransaction />,
-      },
-      {
-        path: "payment/dashboard",
-        element: <PaymentDashboard />,
-      },
-    ],
-  },
+            // Payment
+            {
+                path: "payment",
+                element: <PaymentTransaction />,
+            },
+            {
+                path: "payment/dashboard",
+                element: <PaymentDashboard />,
+            },
+            {
+                path: "payment/detail/:transactionId",
+                element: <PaymentTransactionDetail />,
+            },
+        ],
+    },
 ]);
 
 export default AppRouter;
