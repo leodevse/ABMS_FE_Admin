@@ -33,6 +33,11 @@ const PRIORITY_MAP = {
     CRITICAL: { label: "Nghiêm trọng", cssClass: "badge--inactive" },
 };
 
+const SCOPE_MAP = {
+    PUBLIC: { label: "Công cộng", cssClass: "badge--flat" },
+    PRIVATE: { label: "Riêng tư", cssClass: "badge--confirmed" },
+};
+
 export default function MaintenancePage() {
     const navigate = useNavigate();
     const [requests, setRequests] = useState([]);
@@ -43,6 +48,7 @@ export default function MaintenancePage() {
     const [statusFilter, setStatusFilter] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
+    const [scopeFilter, setScopeFilter] = useState("");
     const [page, setPage]       = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const PAGE_SIZE = 10;
@@ -55,6 +61,7 @@ export default function MaintenancePage() {
             if (statusFilter) params.status = statusFilter;
             if (priorityFilter) params.priority = priorityFilter;
             if (categoryFilter) params.category = categoryFilter;
+            if (scopeFilter) params.scope = scopeFilter;
             
             const [reqRes, statsRes] = await Promise.all([
                 maintenanceApi.getRequests(params),
@@ -224,6 +231,17 @@ export default function MaintenancePage() {
                         <option value="OTHER">Khác</option>
                     </select>
 
+                    <select
+                        className="form-input"
+                        value={scopeFilter}
+                        onChange={(e) => setScopeFilter(e.target.value)}
+                        style={{ width: '160px' }}
+                    >
+                        <option value="">Tất cả phạm vi</option>
+                        <option value="PRIVATE">Riêng tư</option>
+                        <option value="PUBLIC">Công cộng</option>
+                    </select>
+
                     <div className="toolbar__actions">
                         <button type="submit" className="btn btn-primary btn-sm">
                             Lọc & Tìm kiếm
@@ -257,6 +275,7 @@ export default function MaintenancePage() {
                                 <th>Phòng / Căn hộ</th>
                                 <th>Nhân viên</th>
                                 <th>Ưu tiên</th>
+                                <th>Phạm vi</th>
                                 <th>Trạng thái</th>
                                 <th>Ngày tạo</th>
                                 <th></th>
@@ -268,6 +287,8 @@ export default function MaintenancePage() {
                                 const priorityValue = r.priority;
                                 const s = STATUS_MAP[statusValue] ?? { label: statusValue || "-", cssClass: "badge--locked" };
                                 const p = PRIORITY_MAP[priorityValue] ?? { label: priorityValue || "-", cssClass: "badge--locked" };
+                                const scopeValue = r.scope;
+                                const scope = SCOPE_MAP[scopeValue] ?? { label: scopeValue || "-", cssClass: "badge--locked" };
                                 const staffName = r.staffName || r.assignedStaffName;
                                 return (
                                     <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/maintenance/${r.id}`)}>
@@ -285,6 +306,7 @@ export default function MaintenancePage() {
                                         </td>
                                         <td>{staffName ?? <span style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>Chưa giao</span>}</td>
                                         <td><span className={`badge ${p.cssClass}`}>{p.label}</span></td>
+                                        <td><span className={`badge ${scope.cssClass}`}>{scope.label}</span></td>
                                         <td><span className={`badge ${s.cssClass}`}>{s.label}</span></td>
                                         <td style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>
                                             {r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "–"}

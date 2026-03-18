@@ -28,6 +28,9 @@ const maintenanceApi = {
   getQuotationsByRequestId: (id) =>
     axiosClient.get(`/maintenance-workflows/${id}/quotations`),
 
+  getResourcesByRequestId: (id) =>
+    axiosClient.get(`/maintenance-workflows/${id}/resources`),
+
   getLogs: (id) =>
     axiosClient.get(`/maintenance-workflows/${id}/logs`),
 };
