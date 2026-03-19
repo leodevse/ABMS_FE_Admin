@@ -1,7 +1,7 @@
 const BASE_URL = "http://localhost:8080/building-management/api";
 
 const getHeaders = (isFormData = false) => {
-  const token = localStorage.getItem("token");
+  const token = localStorage.getItem("abms_token");
 
   const headers = {};
 
