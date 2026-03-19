@@ -4,10 +4,10 @@ import { jwtDecode } from "jwt-decode";
 
 const AuthProvider = ({ children }) => {
 
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(localStorage.getItem("abms_token"));
 
   const [user, setUser] = useState(() => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken = localStorage.getItem("abms_token");
     if (!savedToken) return null;
 
     try {
@@ -23,7 +23,7 @@ const AuthProvider = ({ children }) => {
   const login = (data) => {
     if (!data?.token) return;
 
-    localStorage.setItem("token", data.token);
+    localStorage.setItem("abms_token", data.token);
 
     const decoded = jwtDecode(data.token);
 
@@ -34,7 +34,7 @@ const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    localStorage.removeItem("abms_token");
     setToken(null);
     setUser(null);
   };
