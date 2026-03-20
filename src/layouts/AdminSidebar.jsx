@@ -6,7 +6,8 @@ import {
     Wrench,
     Home,    Users,
     AlertTriangle,
-    UsersRound
+    UsersRound,
+    ReceiptText
 
 } from "lucide-react";
 
@@ -42,6 +43,7 @@ const navItems = [
         items: [
             // { to: "/payment/dashboard", icon: Home, label: "Quản lý doanh thu" },
             { to: "/payment", icon: Home, label: "Danh sách giao dịch" },
+            { to: "/bills", icon: ReceiptText, label: "Danh sách hóa đơn" },
         ],
     },
     {

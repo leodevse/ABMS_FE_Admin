@@ -30,6 +30,10 @@ const paymentApi = {
   getBillDetail: (billId) =>
     axiosClient.get(`/monthly-bills/${billId}`),
 
+  // Admin xem tất cả hóa đơn — params: { status, periodCode, buildingCode, page, size }
+  getAllBills: (params = {}) =>
+    axiosClient.get("/monthly-bills", { params }),
+
   // Từ chối giao dịch (admin)
   rejectTransaction: (transactionId, reason) =>
     axiosClient.post(`/payments/admin/transactions/${transactionId}/reject`, { reason }),
