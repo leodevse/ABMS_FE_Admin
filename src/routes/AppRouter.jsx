@@ -24,6 +24,7 @@ import ServiceFormPage from "../pages/service/ServiceFormPage";
 import TariffPage from "../pages/service/TariffPage";
 import MeterReadingFormPage from "../pages/meter/MeterReadingFormPage";
 import PaymentTransactionDetail from "../pages/payment/PaymentTransactionDetail.jsx";
+import AdminBillList from "../pages/payment/AdminBillList.jsx";
 
 const AppRouter = createBrowserRouter([
   {
@@ -150,6 +151,11 @@ const AppRouter = createBrowserRouter([
             {
                 path: "payment/detail/:transactionId",
                 element: <PaymentTransactionDetail />,
+            },
+            // Bills
+            {
+                path: "bills",
+                element: <AdminBillList />,
             },
         ],
     },

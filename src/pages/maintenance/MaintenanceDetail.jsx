@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import maintenanceApi from "../../api/maintenanceApi";
 import { fetchUsers } from "../../services/userApi";
+import { extractMaintenanceImagePreviews } from "../../utils/imageUrl";
 import toast from "react-hot-toast";
 
 /**
@@ -51,6 +52,11 @@ const PRIORITY_MAP = {
     CRITICAL: { label: "Nghiêm trọng", color: "var(--color-danger)" }
 };
 
+const SCOPE_MAP = {
+    PUBLIC: "Công cộng",
+    PRIVATE: "Riêng tư",
+};
+
 const QUOTATION_STATUS_MAP = {
     DRAFT: "Nháp",
     SENT: "Đã gửi",
@@ -68,6 +74,7 @@ export default function MaintenanceDetail() {
     const [request, setRequest] = useState(null);
     const [logs, setLogs] = useState([]);
     const [quotations, setQuotations] = useState([]);
+    const [resources, setResources] = useState([]);
 
     // UI State
     const [loading, setLoading] = useState(true);
@@ -90,14 +97,21 @@ export default function MaintenanceDetail() {
         setLoading(true);
         setError(null);
         try {
-            const [reqRes, logsRes, quoteRes] = await Promise.all([
+            const [reqRes, logsRes, quoteRes, resourcesRes] = await Promise.allSettled([
                 maintenanceApi.getRequestById(id),
                 maintenanceApi.getLogs(id),
-                maintenanceApi.getQuotationsByRequestId(id)
+                maintenanceApi.getQuotationsByRequestId(id),
+                maintenanceApi.getResourcesByRequestId(id)
             ]);
-            setRequest(reqRes.data.result);
-            setLogs(logsRes.data.result || []);
-            setQuotations(quoteRes.data.result || []);
+
+            if (reqRes.status !== "fulfilled") {
+                throw reqRes.reason;
+            }
+
+            setRequest(reqRes.value?.data?.result || null);
+            setLogs(logsRes.status === "fulfilled" ? (logsRes.value?.data?.result || []) : []);
+            setQuotations(quoteRes.status === "fulfilled" ? (quoteRes.value?.data?.result || []) : []);
+            setResources(resourcesRes.status === "fulfilled" ? (resourcesRes.value?.data?.result || []) : []);
         } catch (err) {
             setError(err.message || "Không thể tải thông tin chi tiết");
         } finally {
@@ -250,6 +264,7 @@ export default function MaintenanceDetail() {
     const canAssign = ['PENDING', 'VERIFYING'].includes(currentStatus);
     const selectedStaffWorkload = assignStaffId ? staffWorkloadMap[String(assignStaffId)] : null;
     const assignLogs = logs.filter((log) => ["ASSIGN_REQUEST", "ASSIGNED_STAFF"].includes(log.action));
+    const imagePreviews = extractMaintenanceImagePreviews(request, resources);
 
     return (
         <div className="maintenance-detail-container">
@@ -293,7 +308,16 @@ export default function MaintenanceDetail() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
                     
                     {/* Tabs Bar - Project Styled */}
-                    <div className="card" style={{ padding: "0.5rem", display: "flex", gap: "0.5rem", background: "#f8fafc" }}>
+                    <div
+                        className="card"
+                        style={{
+                            padding: "0.5rem",
+                            display: "grid",
+                            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                            gap: "0.5rem",
+                            background: "#f8fafc"
+                        }}
+                    >
                         {[
                             { id: 'info', label: 'Thông tin chung', icon: FileText },
                             { id: 'quote', label: 'Báo giá', icon: DollarSign, count: quotations.length },
@@ -303,7 +327,7 @@ export default function MaintenanceDetail() {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`btn ${activeTab === tab.id ? 'btn-primary' : 'btn-ghost'}`}
-                                style={{ flex: 1, justifyContent: "center" }}
+                                style={{ width: "100%", justifyContent: "center", whiteSpace: "nowrap" }}
                             >
                                 <tab.icon size={16} />
                                 <span>{tab.label}</span>
@@ -328,15 +352,31 @@ export default function MaintenanceDetail() {
                                         </div>
                                     </div>
 
-                                    {request.images && request.images.length > 0 && (
+                                    {imagePreviews.length > 0 && (
                                         <div>
                                             <h3 style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", color: "var(--color-primary)", marginBottom: "1rem" }}>
                                                 Hình ảnh đính kèm
                                             </h3>
                                             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "1rem" }}>
-                                                {request.images.map((img, idx) => (
-                                                    <a key={idx} href={img} target="_blank" rel="noreferrer" className="card" style={{ position: "relative", paddingTop: "100%", overflow: "hidden" }}>
-                                                        <img src={img} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectCover: "cover" }} />
+                                                {imagePreviews.map((img) => (
+                                                    <a key={img.id} href={img.url} target="_blank" rel="noreferrer" className="card" style={{ position: "relative", paddingTop: "100%", overflow: "hidden" }}>
+                                                        <img src={img.url} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                                                        <span
+                                                            style={{
+                                                                position: "absolute",
+                                                                top: "0.5rem",
+                                                                left: "0.5rem",
+                                                                padding: "0.2rem 0.45rem",
+                                                                borderRadius: "999px",
+                                                                fontSize: "0.65rem",
+                                                                fontWeight: 700,
+                                                                background: img.uploaderRole === "STAFF" ? "rgba(3, 105, 161, 0.9)" : img.uploaderRole === "RESIDENT" ? "rgba(21, 128, 61, 0.9)" : "rgba(55, 65, 81, 0.85)",
+                                                                color: "#fff",
+                                                                letterSpacing: "0.02em"
+                                                            }}
+                                                        >
+                                                            {img.uploaderRole === "STAFF" ? "Nhân viên" : img.uploaderRole === "RESIDENT" ? "Cư dân" : "Không rõ"}
+                                                        </span>
                                                     </a>
                                                 ))}
                                             </div>
@@ -440,12 +480,16 @@ export default function MaintenanceDetail() {
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Cư dân</label>
                                 <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                                    <User size={16} /> {residentName || "N/A"}
+                                    <User size={16} /> {residentName || "Không rõ"}
                                 </div>
                             </div>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Danh mục</label>
                                 <div style={{ fontWeight: 600 }}>{categoryName || "Khác"}</div>
+                            </div>
+                            <div>
+                                <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Phạm vi</label>
+                                <div style={{ fontWeight: 700 }}>{SCOPE_MAP[request.scope] || request.scope || "Không rõ"}</div>
                             </div>
                             <div>
                                 <label className="form-label" style={{ fontSize: "0.7rem", color: "var(--color-text-muted)" }}>Mức độ ưu tiên</label>
