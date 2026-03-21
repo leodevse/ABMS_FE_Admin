@@ -34,27 +34,35 @@ export default function AddBuilding() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
       const res = await createBuilding(formData);
-      if (res.code === 200 || res.code === 201) {
+      
+      // Nếu API trả về cấu trúc ApiResponse (thành công)
+      if (res.code === 200 || res.code === 201 || res.code === 0) {
         toast.success("Thêm tòa nhà thành công!");
-        navigate("/buildings");
+        navigate("/building");
       } else {
+        // Trường hợp backend trả về lỗi nằm trong res.message (nếu apiClient không throw lỗi)
         setError(res.message || "Có lỗi xảy ra khi tạo tòa nhà.");
       }
     } catch (err) {
-      setError("Không thể kết nối đến máy chủ.");
-      console.error(err);
+      // ĐÂY LÀ NƠI QUAN TRỌNG: 
+      // err.message chính là chuỗi "3BR area must be at least 60 sqm" mà apiClient đã bắt được
+      console.error("API Error:", err);
+      
+      // Lấy message từ error object hoặc từ response data (nếu dùng axios)
+      const serverMessage = err.response?.data?.message || err.message;
+      
+      setError(serverMessage || "Không thể kết nối đến máy chủ.");
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="maintenance-detail-container" style={{ padding: "1.5rem", width: "100%", maxWidth: "none", minHeight: "100vh", boxSizing: "border-box" }}>
       

@@ -89,7 +89,7 @@ export default function ApartmentListByBuilding() {
                     <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
                         <button 
                             className="btn btn-ghost btn-icon" 
-                            onClick={() => navigate('/buildings')}
+                            onClick={() => navigate('/building')}
                             style={{ color: "white", borderColor: "rgba(255,255,255,0.3)" }}
                         >
                             <ChevronLeft size={24} />
