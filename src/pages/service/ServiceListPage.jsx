@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Search, Settings, RefreshCw, CircleSlash, CheckCircle } from "lucide-react";
+import { Plus, Search, Settings, RefreshCw, CircleSlash, CheckCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { serviceApi } from "../../services/serviceApi";
+import toast from "react-hot-toast";
 
 // ── helpers ──────────────────────────────────────────────────
 const BILLING_LABEL = {
@@ -10,59 +11,51 @@ const BILLING_LABEL = {
     TIER: { text: "Tiered", cls: "badge--tier" },
 };
 
-function Toast({ toasts }) {
-    return (
-        <div className="toast-container">
-            {toasts.map((t) => (
-                <div key={t.id} className={`toast toast--${t.type}`}>
-                    {t.type === "success" ? (
-                        <CheckCircle size={16} color="var(--color-success)" />
-                    ) : (
-                        <CircleSlash size={16} color="var(--color-danger)" />
-                    )}
-                    {t.msg}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-let toastId = 0;
 
 export default function ServiceListPage() {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({
+        totalPages: 0,
+        totalElements: 0,
+        pageSize: 5,
+    });
 
     const navigate = useNavigate();
 
-    // Toast
-    const [toasts, setToasts] = useState([]);
-
-    const addToast = useCallback((msg, type = "success") => {
-        const id = ++toastId;
-        setToasts((t) => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    }, []);
 
     // ── fetch ──────────────────────────────────────────────────
     const fetchServices = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await serviceApi.getAll();
-            setServices(res.data?.result ?? []);
+            const res = await serviceApi.getAll({ page, size: 5 });
+            const result = res.data?.result;
+            if (result && result.data) {
+                setServices(result.data);
+                setPagination({
+                    totalPages: result.totalPages,
+                    totalElements: result.totalElements,
+                    pageSize: result.pageSize,
+                });
+            } else {
+                setServices(result ?? []);
+            }
         } catch (err) {
-            addToast("Không thể tải danh sách dịch vụ", "error");
+            toast.error("Không thể tải danh sách dịch vụ");
         } finally {
             setLoading(false);
         }
-    }, [addToast]);
+    }, [page]);
 
     useEffect(() => {
         fetchServices();
     }, [fetchServices]);
 
     // ── filter ────────────────────────────────────────────────
+    // NOTE: In a paginated scenario, search should ideally be done on the backend.
+    // For now, if searching, we might want to toggle back to a full list or just filter the current page.
     const filtered = services.filter((s) => {
         const q = search.toLowerCase();
         return (
@@ -75,15 +68,15 @@ export default function ServiceListPage() {
         try {
             if (svc.isActive) {
                 await serviceApi.deactivate(svc.id);
-                addToast(`Đã vô hiệu hóa dịch vụ "${svc.name}"`);
+                toast.success(`Đã vô hiệu hóa dịch vụ "${svc.name}"`);
             } else {
                 await serviceApi.activate(svc.id);
-                addToast(`Đã kích hoạt dịch vụ "${svc.name}"`);
+                toast.success(`Đã kích hoạt dịch vụ "${svc.name}"`);
             }
             fetchServices();
         } catch (err) {
             const msg = err.response?.data?.message ?? "Thao tác thất bại";
-            addToast(msg, "error");
+            toast.error(msg);
         }
     };
 
@@ -109,7 +102,7 @@ export default function ServiceListPage() {
             </div>
 
             {/* Table Card */}
-            <div className="card">
+            <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "400px" }}>
                 {/* Toolbar */}
                 <div className="toolbar">
                     <div className="toolbar__search">
@@ -141,7 +134,7 @@ export default function ServiceListPage() {
                 </div>
 
                 {/* Table */}
-                <div style={{ overflowX: "auto" }}>
+                <div style={{ overflowX: "auto", flex: 1 }}>
                     <table className="data-table">
                         <thead>
                             <tr>
@@ -232,19 +225,43 @@ export default function ServiceListPage() {
                         </tbody>
                     </table>
                 </div>
-
-                {/* Footer count */}
-                {!loading && filtered.length > 0 && (
-                    <div style={{ padding: "0.75rem 1.5rem", fontSize: "0.8rem", color: "var(--color-text-muted)", borderTop: "1px solid var(--color-border)" }}>
-                        Hiển thị {filtered.length} / {services.length} dịch vụ
-                        {search && ` (đang lọc theo "${search}")`}
+                {/* Pagination Footer */}
+                <div style={{
+                    padding: "1rem 1.5rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderTop: "1px solid var(--color-border)",
+                    backgroundColor: "#f8fafc"
+                }}>
+                    <div style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
+                        Dữ liệu trang <strong>{page}</strong> / {pagination.totalPages} · Tổng số {pagination.totalElements} dịch vụ
                     </div>
-                )}
+
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                            className="btn btn-ghost"
+                            disabled={page === 1 || loading}
+                            onClick={() => setPage(p => p - 1)}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                        >
+                            <ChevronLeft size={18} /> Trang trước
+                        </button>
+
+                        <button
+                            className="btn btn-ghost"
+                            disabled={page >= pagination.totalPages || loading}
+                            onClick={() => setPage(p => p + 1)}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                        >
+                            Trang sau <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
             </div>
 
             {/* Modals removed and replaced by pages */}
 
-            <Toast toasts={toasts} />
 
             <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }

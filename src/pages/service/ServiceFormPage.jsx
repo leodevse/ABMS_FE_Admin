@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Save, ArrowLeft, CheckCircle, CircleSlash } from "lucide-react";
 import { serviceApi } from "../../services/serviceApi";
+import toast from "react-hot-toast";
 
 const BILLING_OPTIONS = [
     { value: "FIXED", label: "Fixed – Phí cố định" },
@@ -19,24 +20,6 @@ const DEFAULT_FORM = {
     description: "",
 };
 
-function Toast({ toasts }) {
-    return (
-        <div className="toast-container">
-            {toasts.map((t) => (
-                <div key={t.id} className={`toast toast--${t.type}`}>
-                    {t.type === "success" ? (
-                        <CheckCircle size={16} color="var(--color-success)" />
-                    ) : (
-                        <CircleSlash size={16} color="var(--color-danger)" />
-                    )}
-                    {t.msg}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-let toastId = 0;
 
 export default function ServiceFormPage() {
     const { id } = useParams();
@@ -47,22 +30,14 @@ export default function ServiceFormPage() {
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(isEdit);
     const [errors, setErrors] = useState({});
-    const [toasts, setToasts] = useState([]);
-
-    const addToast = useCallback((msg, type = "success") => {
-        const id = ++toastId;
-        setToasts((t) => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    }, []);
 
     // Load data if edit
     useEffect(() => {
         if (isEdit) {
             const fetchService = async () => {
                 try {
-                    const res = await serviceApi.getAll();
-                    const allServices = res.data?.result ?? [];
-                    const service = allServices.find(s => s.id === id);
+                    const res = await serviceApi.getById(id);
+                    const service = res.data?.result;
                     if (service) {
                         setForm({
                             code: service.code ?? "",
@@ -74,18 +49,18 @@ export default function ServiceFormPage() {
                             description: service.description ?? "",
                         });
                     } else {
-                        addToast("Không tìm thấy dịch vụ", "error");
+                        toast.error("Không tìm thấy dịch vụ");
                         setTimeout(() => navigate("/service-config"), 1500);
                     }
                 } catch (err) {
-                    addToast("Lỗi khi tải thông tin dịch vụ", "error");
+                    toast.error("Lỗi khi tải thông tin dịch vụ");
                 } finally {
                     setFetching(false);
                 }
             };
             fetchService();
         }
-    }, [id, isEdit, navigate, addToast]);
+    }, [id, isEdit, navigate]);
 
     const set = (field, value) => {
         setForm((f) => ({ ...f, [field]: value }));
@@ -96,9 +71,21 @@ export default function ServiceFormPage() {
         const e = {};
         if (!form.code.trim()) e.code = "Mã dịch vụ không được để trống";
         if (form.code.length > 50) e.code = "Mã dịch vụ tối đa 50 ký tự";
-        if (!form.name.trim()) e.name = "Tên dịch vụ không được để trống";
-        if (form.name.length > 100) e.name = "Tên dịch vụ tối đa 100 ký tự";
-        if (form.unit.length > 20) e.unit = "Đơn vị tối đa 20 ký tự";
+
+        if (!form.name.trim()) {
+            e.name = "Tên dịch vụ không được để trống";
+        } else if (form.name.length > 100) {
+            e.name = "Tên dịch vụ tối đa 100 ký tự";
+        } else if (!/^[\p{L}\p{N}\s]+$/u.test(form.name)) {
+            e.name = "Tên dịch vụ không được chứa ký tự đặc biệt";
+        }
+
+        if (form.unit.length > 20) {
+            e.unit = "Đơn vị tối đa 20 ký tự";
+        } else if (form.unit.trim() && !/^[\p{L}\p{N}\s]+$/u.test(form.unit)) {
+            e.unit = "Đơn vị không được chứa ký tự đặc biệt";
+        }
+
         if (form.description.length > 500) e.description = "Mô tả tối đa 500 ký tự";
         return e;
     };
@@ -121,15 +108,15 @@ export default function ServiceFormPage() {
             };
             if (isEdit) {
                 await serviceApi.update(id, payload);
-                addToast("Cập nhật dịch vụ thành công");
+                toast.success("Cập nhật dịch vụ thành công");
             } else {
                 await serviceApi.create(payload);
-                addToast("Tạo dịch vụ thành công");
+                toast.success("Tạo dịch vụ thành công");
             }
             setTimeout(() => navigate("/service-config"), 1000);
         } catch (err) {
             const msg = err.response?.data?.message ?? "Thao tác thất bại";
-            addToast(msg, "error");
+            toast.error(msg);
         } finally {
             setLoading(false);
         }
@@ -305,7 +292,6 @@ export default function ServiceFormPage() {
                 </form>
             </div>
 
-            <Toast toasts={toasts} />
         </div>
     );
 }

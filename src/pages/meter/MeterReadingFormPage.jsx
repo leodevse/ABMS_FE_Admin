@@ -3,22 +3,11 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Save, ArrowLeft, Camera, AlertCircle, CheckCircle, Info } from "lucide-react";
 import { meterReadingApi } from "../../services/meterReadingApi";
 import { serviceApi } from "../../services/serviceApi";
-import { fetchApartmentsByBuilding } from "../../api/apartmentApi";
+import { fetchApartmentsByBuilding, getApartmentById } from "../../services/apartmentApi";
 
-function Toast({ toasts }) {
-    return (
-        <div className="toast-container">
-            {toasts.map((t) => (
-                <div key={t.id} className={`toast toast--${t.type}`}>
-                    {t.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                    {t.msg}
-                </div>
-            ))}
-        </div>
-    );
-}
+import toast from "react-hot-toast";
 
-let toastId = 0;
+
 
 export default function MeterReadingFormPage() {
     const { id } = useParams(); // For edit
@@ -31,33 +20,28 @@ export default function MeterReadingFormPage() {
     const qPeriod = query.get("period");
     const qBuildingId = query.get("buildingId");
     const qApartmentId = query.get("apartmentId");
+    const qNewIndex = query.get("newIndex");
+    const qNote = query.get("note");
 
     const isEdit = Boolean(id);
     const [loading, setLoading] = useState(false);
     const [initialFetch, setInitialFetch] = useState(true);
     const [service, setService] = useState(null);
     const [apartments, setApartments] = useState([]);
-    
+
     // Form state
     const [form, setForm] = useState({
         apartmentId: qApartmentId || "",
         serviceId: qServiceId || "",
         period: qPeriod || new Date().toISOString().slice(0, 7),
         oldIndex: 0,
-        newIndex: "",
+        newIndex: qNewIndex || "",
         isMeterReset: false,
-        note: ""
+        note: qNote || ""
     });
     const [photo, setPhoto] = useState(null);
     const [photoPreview, setPhotoPreview] = useState(null);
-    const [toasts, setToasts] = useState([]);
     const [isReadOnly, setIsReadOnly] = useState(false);
-
-    const addToast = useCallback((msg, type = "success") => {
-        const id = ++toastId;
-        setToasts((t) => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    }, []);
 
     const resolveImageUrl = (url) => {
         if (!url) return null;
@@ -72,36 +56,51 @@ export default function MeterReadingFormPage() {
         const loadInitialData = async () => {
             setInitialFetch(true);
             try {
-                // Fetch current record if editing
                 let currentItem = null;
                 if (isEdit) {
-                    // Try to fetch specific reading if we have ID
-                    // Using getByPeriod as a fallback to find it if there's no getById
-                    const res = await meterReadingApi.getByPeriod(qPeriod || "", qServiceId || "");
-                    currentItem = res.data?.result?.find(r => r.id === id);
-                    
-                    // If not found in current period/service, we might need a better API call or the user is editing from another context
-                    if (!currentItem && id) {
-                        // In a real app, you'd have meterReadingApi.getById(id)
+                    // Fetch specific reading by ID directly
+                    try {
+                        const res = await meterReadingApi.getById(id);
+                        currentItem = res.data?.result;
+                    } catch (err) {
+                        console.error("Error fetching meter reading by ID:", err);
+                        // Fallback to previous logic if needed, but getById is preferred
+                        if (qPeriod && qServiceId) {
+                            const res = await meterReadingApi.getByPeriod(qPeriod, qServiceId);
+                            currentItem = res.data?.result?.find(r => r.id === id);
+                        }
                     }
                 }
 
                 const activeAptId = currentItem?.apartmentId || qApartmentId;
-                const activeBuildingId = currentItem?.buildingId || qBuildingId;
                 const activeServiceId = currentItem?.serviceId || qServiceId;
                 const activePeriod = currentItem?.period || qPeriod || new Date().toISOString().slice(0, 7);
 
-                // Load Service details
+                // For buildingId, try Reading -> Apartment -> Query Param
+                let activeBuildingId = qBuildingId;
+                if (activeAptId && !activeBuildingId) {
+                    try {
+                        const aptRes = await getApartmentById(activeAptId);
+                        activeBuildingId = aptRes.data?.result?.buildingId || aptRes.result?.buildingId;
+                    } catch (e) {
+                        console.error("Could not fetch apartment to resolve buildingId");
+                    }
+                }
+
+                // fallback to currentItem if it has it (future-proofing)
+                if (currentItem?.buildingId) activeBuildingId = currentItem.buildingId;
+
+                // Load Service details (need billingMethod)
                 if (activeServiceId) {
-                    const resSvc = await serviceApi.getAll();
-                    const svc = resSvc.data?.result?.find(s => s.id === activeServiceId);
-                    setService(svc);
+                    const resSvc = await serviceApi.getById(activeServiceId);
+                    setService(resSvc.data?.result);
                 }
 
                 // Load Apartments for the building dropdown
                 if (activeBuildingId) {
                     const resApts = await fetchApartmentsByBuilding(activeBuildingId);
-                    setApartments(resApts.result || resApts.data || []);
+                    const aptList = resApts.result || resApts.data?.result || resApts.data || [];
+                    setApartments(Array.isArray(aptList) ? aptList : []);
                 }
 
                 // Initialize Form
@@ -126,13 +125,14 @@ export default function MeterReadingFormPage() {
                     }));
                 }
             } catch (err) {
-                addToast("Lỗi khi tải dữ liệu", "error");
+                console.error("Initial load error:", err);
+                toast.error("Lỗi khi tải dữ liệu chi tiết");
             } finally {
                 setInitialFetch(false);
             }
         };
         loadInitialData();
-    }, [id, isEdit, qApartmentId, qBuildingId, qPeriod, qServiceId, addToast]);
+    }, [id, isEdit, qApartmentId, qBuildingId, qPeriod, qServiceId]);
 
     // 2. Fetch Old Index if context changes
     useEffect(() => {
@@ -152,21 +152,30 @@ export default function MeterReadingFormPage() {
         }
     };
 
+    const getBackUrl = () => {
+        const params = new URLSearchParams();
+        if (form.serviceId) params.append("serviceId", form.serviceId);
+        if (qBuildingId) params.append("buildingId", qBuildingId);
+        if (form.period) params.append("period", form.period);
+        const qs = params.toString();
+        return qs ? `/meter-readings?${qs}` : "/meter-readings";
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (isReadOnly) { navigate("/meter-readings"); return; }
-        if (!form.apartmentId) { addToast("Vui lòng chọn căn hộ", "error"); return; }
-        
+        if (isReadOnly) { navigate(getBackUrl()); return; }
+        if (!form.apartmentId) { toast.error("Vui lòng chọn căn hộ"); return; }
+
         const isTiered = service?.billingMethod === "TIER";
         const nIdx = isTiered ? parseFloat(form.newIndex) : 0;
 
         if (isTiered) {
             if (form.newIndex === "" || form.newIndex === null || isNaN(nIdx)) {
-                addToast("Vui lòng nhập chỉ số mới hợp lệ", "error");
+                toast.error("Vui lòng nhập chỉ số mới hợp lệ");
                 return;
             }
             if (!form.isMeterReset && nIdx < form.oldIndex) {
-                addToast("Chỉ số mới không được nhỏ hơn chỉ số cũ trừ khi Reset", "error");
+                toast.error("Chỉ số mới không được nhỏ hơn chỉ số cũ trừ khi Reset");
                 return;
             }
         }
@@ -182,17 +191,17 @@ export default function MeterReadingFormPage() {
                 isMeterReset: form.isMeterReset,
                 note: form.note
             };
-            
+
             if (isEdit) {
                 await meterReadingApi.update(id, payload, photo);
-                addToast("Cập nhật chỉ số thành công");
+                toast.success("Cập nhật chỉ số thành công");
             } else {
                 await meterReadingApi.create(payload, photo);
-                addToast("Lưu chỉ số thành công");
+                toast.success("Lưu chỉ số thành công");
             }
-            setTimeout(() => navigate("/meter-readings"), 1000);
+            setTimeout(() => navigate(getBackUrl()), 1000);
         } catch (err) {
-            addToast(err.response?.data?.message || "Thao tác thất bại", "error");
+            toast.error(err.response?.data?.message || "Thao tác thất bại");
         } finally {
             setLoading(false);
         }
@@ -214,7 +223,7 @@ export default function MeterReadingFormPage() {
         <div className="meter-reading-form-page">
             <div className="page-header">
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                    <button className="btn btn-ghost btn-sm" onClick={() => navigate("/meter-readings")}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => navigate(getBackUrl())}>
                         <ArrowLeft size={18} />
                     </button>
                     <div>
@@ -232,10 +241,10 @@ export default function MeterReadingFormPage() {
                 <form onSubmit={handleSubmit} style={{ padding: "2rem" }}>
                     <div className="form-group">
                         <label className="form-label">Căn hộ <span>*</span></label>
-                        <select 
-                            className="form-select" 
-                            value={form.apartmentId} 
-                            disabled={isEdit || isReadOnly} 
+                        <select
+                            className="form-select"
+                            value={form.apartmentId}
+                            disabled={isEdit || isReadOnly}
                             onChange={e => setForm(f => ({ ...f, apartmentId: e.target.value }))}
                         >
                             <option value="">-- Chọn căn hộ --</option>
@@ -344,7 +353,7 @@ export default function MeterReadingFormPage() {
                                     </>
                                 )}
                                 <input id="photo-page-upload" type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} disabled={isReadOnly} />
-                                
+
                                 {photoPreview && !isReadOnly && (
                                     <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.5)", color: "#fff", padding: "4px", textAlign: "center", fontSize: "0.7rem" }}>
                                         Thay đổi ảnh
@@ -355,7 +364,7 @@ export default function MeterReadingFormPage() {
                     </div>
 
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid var(--color-border)" }}>
-                        <button type="button" className="btn btn-secondary" onClick={() => navigate("/meter-readings")}>
+                        <button type="button" className="btn btn-secondary" onClick={() => navigate(getBackUrl())}>
                             {isReadOnly ? "Quay lại" : "Hủy"}
                         </button>
                         {!isReadOnly && (
@@ -368,7 +377,7 @@ export default function MeterReadingFormPage() {
                 </form>
             </div>
 
-            <Toast toasts={toasts} />
+
             <style>{`
                 .hover-upload:hover { border-color: var(--color-primary); background: #f1f5f9; }
             `}</style>

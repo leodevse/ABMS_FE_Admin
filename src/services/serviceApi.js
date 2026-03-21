@@ -2,8 +2,10 @@ import axiosClient from "../api/axiosClient";
 
 // ─── SERVICE CRUD ───────────────────────────────────────────
 export const serviceApi = {
-    getAll: (activeOnly = false) =>
-        axiosClient.get("/services", { params: { activeOnly } }),
+    getAll: (params = {}) => {
+        const queryParams = typeof params === "boolean" ? { activeOnly: params } : params;
+        return axiosClient.get("/services", { params: queryParams });
+    },
 
     getById: (id, includeTariffs = false) =>
         axiosClient.get(`/services/${id}`, { params: { includeTariffs } }),

@@ -6,10 +6,10 @@ const REQUIRED_ROLE = "BUILDING_MANAGER";
 
 const AuthProvider = ({ children }) => {
 
-  const [token, setToken] = useState(localStorage.getItem("token"));
+  const [token, setToken] = useState(sessionStorage.getItem("token"));
 
   const [user, setUser] = useState(() => {
-    const savedToken = localStorage.getItem("token");
+    const savedToken = sessionStorage.getItem("token");
     if (!savedToken) return null;
 
     try {
@@ -39,7 +39,7 @@ const AuthProvider = ({ children }) => {
       return false;
     }
 
-    localStorage.setItem("token", data.token);
+    sessionStorage.setItem("token", data.token);
 
     setToken(data.token);
     setUser({
@@ -51,7 +51,7 @@ const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
+    sessionStorage.removeItem("token");
     setToken(null);
     setUser(null);
   };

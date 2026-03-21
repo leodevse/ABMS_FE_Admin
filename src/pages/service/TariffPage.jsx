@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Save, ChevronDown, ChevronRight, CheckCircle, CircleSlash } from "lucide-react";
 import { tariffApi, serviceApi } from "../../services/serviceApi";
+import toast from "react-hot-toast";
 
 const fmt = (n) => (n !== undefined && n !== null ? String(n) : "");
 
@@ -160,24 +161,6 @@ const EMPTY_TIER = { minVal: "", maxVal: "", price: "" };
 const sortTiers = (list) =>
     [...list].sort((a, b) => (parseFloat(a.minVal) || 0) - (parseFloat(b.minVal) || 0));
 
-function Toast({ toasts }) {
-    return (
-        <div className="toast-container">
-            {toasts.map((t) => (
-                <div key={t.id} className={`toast toast--${t.type}`}>
-                    {t.type === "success" ? (
-                        <CheckCircle size={16} color="var(--color-success)" />
-                    ) : (
-                        <CircleSlash size={16} color="var(--color-danger)" />
-                    )}
-                    {t.msg}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-let toastId = 0;
 
 export default function TariffPage() {
     const { serviceId } = useParams();
@@ -187,13 +170,6 @@ export default function TariffPage() {
     const [tariffs, setTariffs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    const [toasts, setToasts] = useState([]);
-
-    const addToast = useCallback((msg, type = "success") => {
-        const id = ++toastId;
-        setToasts((t) => [...t, { id, msg, type }]);
-        setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
-    }, []);
 
     // Form state
     const [effectiveFrom, setEffectiveFrom] = useState(
@@ -215,10 +191,10 @@ export default function TariffPage() {
             setLoading(true);
             try {
                 // Fetch service info
-                const resSvc = await serviceApi.getAll();
-                const svc = resSvc.data?.result?.find(s => s.id === serviceId);
+                const resSvc = await serviceApi.getById(serviceId);
+                const svc = resSvc.data?.result;
                 if (!svc) {
-                    addToast("Không tìm thấy dịch vụ", "error");
+                    toast.error("Không tìm thấy dịch vụ");
                     setTimeout(() => navigate("/service-config"), 1500);
                     return;
                 }
@@ -246,13 +222,13 @@ export default function TariffPage() {
                     }
                 }
             } catch (err) {
-                addToast("Lỗi khi tải dữ liệu", "error");
+                toast.error("Lỗi khi tải dữ liệu");
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
-    }, [serviceId, navigate, addToast]);
+    }, [serviceId, navigate]);
 
     const updateTier = (idx, field, value) =>
         setTiers((ts) => ts.map((t, i) => (i === idx ? { ...t, [field]: value } : t)));
@@ -276,15 +252,15 @@ export default function TariffPage() {
 
     const handleSave = async (e) => {
         e.preventDefault();
-        if (!effectiveFrom) { addToast("Vui lòng chọn ngày áp dụng", "error"); return; }
+        if (!effectiveFrom) { toast.error("Vui lòng chọn ngày áp dụng"); return; }
 
         if (isTier) {
             if (tiers.some((t) => !t.price)) {
-                addToast("Vui lòng nhập đơn giá cho tất cả các bậc", "error");
+                toast.error("Vui lòng nhập đơn giá cho tất cả các bậc");
                 return;
             }
         } else {
-            if (!price) { addToast("Vui lòng nhập đơn giá", "error"); return; }
+            if (!price) { toast.error("Vui lòng nhập đơn giá"); return; }
         }
 
         setSaving(true);
@@ -303,10 +279,10 @@ export default function TariffPage() {
                     : [],
             };
             await tariffApi.addTariff(serviceId, payload);
-            addToast("Cập nhật biểu giá thành công");
+            toast.success("Cập nhật biểu giá thành công");
             setTimeout(() => navigate("/service-config"), 1000);
         } catch (err) {
-            addToast(err.response?.data?.message ?? "Lưu biểu giá thất bại", "error");
+            toast.error(err.response?.data?.message ?? "Lưu biểu giá thất bại");
         } finally {
             setSaving(false);
         }
@@ -541,7 +517,6 @@ export default function TariffPage() {
                 </div>
             </div>
 
-            <Toast toasts={toasts} />
         </div>
     );
 }

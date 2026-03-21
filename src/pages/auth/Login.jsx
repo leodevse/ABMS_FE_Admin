@@ -33,7 +33,7 @@ function Login() {
     } catch (err) {
       console.error(err);
       // Hiển thị lỗi thực tế từ file authApi.js ném ra (ví dụ: "Acccount is deactive")
-      setErrorMsg(err.message); 
+      setErrorMsg(err.message);
     } finally {
       setLoading(false);
     }
