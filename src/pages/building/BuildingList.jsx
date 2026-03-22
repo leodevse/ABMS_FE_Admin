@@ -39,7 +39,7 @@ export default function BuildingList() {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token") || localStorage.getItem("token");
 
 const loadBuildings = useCallback(async () => {
     if (!token) return;
