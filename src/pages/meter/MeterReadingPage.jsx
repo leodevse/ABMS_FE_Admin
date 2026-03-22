@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
     Gauge, Search, Download, Upload, Save, CheckCircle, Lock,
-    AlertCircle, ChevronRight, ChevronDown, ChevronUp, Edit2, FileSpreadsheet, RefreshCw, Plus, X, Camera, Image as ImageIcon
+    AlertCircle, ChevronDown, ChevronUp, Edit2, RefreshCw, Plus, Image as ImageIcon,
+    ChevronLeft, ChevronRight
 } from "lucide-react";
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
-import { meterReadingApi } from "../../api/meterReadingApi";
-import { serviceApi } from "../../api/serviceApi";
-import { apartmentApi, fetchApartmentsByBuilding } from "../../api/apartmentApi";
+import { meterReadingApi } from "../../services/meterReadingApi";
+import { serviceApi } from "../../services/serviceApi";
+import { fetchApartmentsWithFilters, fetchBuildingFloors, fetchApartmentsByBuilding } from "../../services/apartmentApi";
 import { fetchBuildings } from "../../services/buildingApi";
 
 // ── helpers ──────────────────────────────────────────────────
@@ -17,248 +20,10 @@ const STATUS_BADGE = {
     UNRECORDED: { text: "Chưa ghi", cls: "badge--inactive" },
 };
 
-function Toast({ toasts, onRemove }) {
-    return (
-        <div className="toast-container">
-            {toasts.map((t) => (
-                <div key={t.id} className={`toast toast--${t.type}`} onClick={() => onRemove(t.id)}>
-                    {t.type === "success" ? <CheckCircle size={16} /> : <AlertCircle size={16} />}
-                    {t.msg}
-                </div>
-            ))}
-        </div>
-    );
-}
-
-/* ─── Manual Add/Edit Modal ─── */
-function ManualReadingModal({ service, period, apartments, initialData, onSaved, onClose, onError }) {
-    const isReadOnly = initialData && initialData.status !== "DRAFT" && initialData.status !== "UNRECORDED" && initialData.status !== undefined;
-    const [selectedApartment, setSelectedApartment] = useState(initialData?.apartmentId || "");
-    const [oldIndex, setOldIndex] = useState(initialData?.status !== "UNRECORDED" ? (initialData?.oldIndex || 0) : 0);
-    const [newIndex, setNewIndex] = useState(initialData?.newIndex || "");
-    const [isMeterReset, setIsMeterReset] = useState(initialData?.isMeterReset || false);
-    const [photo, setPhoto] = useState(null);
-    const resolveImageUrl = (url) => {
-        if (!url) return null;
-        if (url.startsWith('http') || url.startsWith('blob:')) return url;
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || '';
-        const basePath = baseUrl.replace(/\/api\/?$/, '');
-        return url.startsWith('/') ? `${basePath}${url}` : `${basePath}/${url}`;
-    };
-    const [photoPreview, setPhotoPreview] = useState(resolveImageUrl(initialData?.photoUrl));
-    const [note, setNote] = useState(initialData?.note || "");
-    const [loading, setLoading] = useState(false);
-
-    const parsedNew = parseFloat(newIndex);
-    const parsedOld = parseFloat(oldIndex);
-    const currentUsage = !isNaN(parsedNew) && !isNaN(parsedOld)
-        ? (isMeterReset && parsedNew < parsedOld ? parsedNew : parsedNew - parsedOld)
-        : "";
-
-    useEffect(() => {
-        if (!initialData || initialData.status === "UNRECORDED") {
-            if (selectedApartment && service?.id && period) {
-                meterReadingApi.getOldIndex(selectedApartment, service.id, period)
-                    .then(res => setOldIndex(res.data?.result?.suggestedOldIndex ?? 0))
-                    .catch(() => setOldIndex(0));
-            }
-        }
-    }, [selectedApartment, service, period, initialData]);
-
-    const handlePhotoChange = (e) => {
-        if (isReadOnly) return;
-        const file = e.target.files[0];
-        if (file) {
-            setPhoto(file);
-            setPhotoPreview(URL.createObjectURL(file));
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (isReadOnly) { onClose(); return; }
-        const isTier = service?.billingMethod === "TIER";
-
-        if (!selectedApartment) {
-            onError("Vui lòng chọn căn hộ");
-            return;
-        }
-
-        if (isTier && newIndex === "") {
-            onError("Vui lòng nhập chỉ số mới");
-            return;
-        }
-
-        const nIdx = isTier ? parseFloat(newIndex) : 0;
-        if (isTier && !isMeterReset && nIdx < oldIndex) {
-            onError("Chỉ số mới không được nhỏ hơn chỉ số cũ trừ khi đánh dấu 'Thay đồng hồ/Reset'");
-            return;
-        }
-
-        setLoading(true);
-        try {
-            const data = {
-                apartmentId: selectedApartment,
-                serviceId: service.id,
-                period,
-                oldIndex,
-                newIndex: nIdx,
-                isMeterReset,
-                note
-            };
-            if (initialData && initialData.id && !initialData.isPlaceholder) {
-                await meterReadingApi.update(initialData.id, data, photo);
-            } else {
-                await meterReadingApi.create(data, photo);
-            }
-            onSaved();
-        } catch (err) {
-            onError(err.response?.data?.message || "Lưu chỉ số thất bại");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    return (
-        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-            <div className="modal modal--lg">
-                <div className="modal-header">
-                    <div>
-                        <h2 className="modal-title">
-                            {isReadOnly ? "Chi tiết chỉ số" : (initialData && !initialData.isPlaceholder ? "Chỉnh sửa chỉ số" : "Thêm chỉ số thủ công")}
-                        </h2>
-                        <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)" }}>
-                            Dịch vụ: <strong>{service?.name}</strong> · Kỳ: <strong>{period}</strong>
-                        </p>
-                    </div>
-                    <button className="icon-btn" type="button" onClick={onClose}><X size={16} /></button>
-                </div>
-                <form onSubmit={handleSubmit}>
-                    <div className="modal-body">
-                        <div className="form-group">
-                            <label className="form-label">Chọn căn hộ</label>
-                            <select className="form-select" value={selectedApartment} disabled={!!initialData} onChange={e => setSelectedApartment(e.target.value)} autoFocus>
-                                <option value="">-- Danh sách căn hộ --</option>
-                                {apartments.map(a => <option key={a.id} value={a.id}>{a.code}</option>)}
-                            </select>
-                        </div>
-
-                        {service?.billingMethod === "TIER" && (
-                            <>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Chỉ số cũ ({service?.unit})</label>
-                                        <input className="form-input" value={oldIndex} disabled style={{ background: "#f1f5f9" }} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Chỉ số mới ({service?.unit})</label>
-                                        <input
-                                            className="form-input"
-                                            type="number"
-                                            step="0.01"
-                                            value={newIndex}
-                                            onChange={e => setNewIndex(e.target.value)}
-                                            placeholder="0.00"
-                                            disabled={isReadOnly}
-                                            style={isReadOnly ? { background: "#f1f5f9" } : {}}
-                                        />
-                                        {(!isMeterReset && parsedNew < parsedOld) && (
-                                            <span style={{ color: "var(--color-warning)", fontSize: "0.8rem", marginTop: "0.25rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                                                <AlertCircle size={14} />
-                                                Chỉ số mới nhỏ hơn chỉ số cũ. Vui lòng chọn Reset.
-                                            </span>
-                                        )}
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Tiêu thụ ({service?.unit})</label>
-                                        <input
-                                            className="form-input"
-                                            value={currentUsage !== "" ? currentUsage.toLocaleString() : ""}
-                                            disabled
-                                            style={{ background: "#f1f5f9", fontWeight: "bold", color: currentUsage < 0 ? "var(--color-danger)" : "#334155" }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div style={{ display: "flex", gap: "1.5rem", marginTop: "0.5rem", marginBottom: "1rem" }}>
-                                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: isReadOnly ? "default" : "pointer", fontSize: "0.875rem" }}>
-                                        <input
-                                            type="checkbox"
-                                            checked={isMeterReset}
-                                            onChange={e => setIsMeterReset(e.target.checked)}
-                                            className="form-checkbox"
-                                            disabled={isReadOnly}
-                                        />
-                                        Thay đồng hồ / Reset về 0
-                                    </label>
-                                </div>
-                            </>
-                        )}
-
-                        <div className="form-row">
-                            <div className="form-group" style={{ flex: 2 }}>
-                                <label className="form-label">Ghi chú / Lý do</label>
-                                <textarea
-                                    className="form-textarea"
-                                    rows={3}
-                                    value={note}
-                                    onChange={e => setNote(e.target.value)}
-                                    placeholder={!isReadOnly ? "Nhập ghi chú hoặc lý do nếu reset chỉ số..." : ""}
-                                    disabled={isReadOnly}
-                                    style={isReadOnly ? { background: "#f1f5f9" } : {}}
-                                />
-                            </div>
-                            <div className="form-group" style={{ flex: 1 }}>
-                                <label className="form-label">Ảnh chứng minh</label>
-                                <div
-                                    onClick={() => !isReadOnly && document.getElementById("photo-upload").click()}
-                                    style={{
-                                        border: "2px dashed var(--color-border)",
-                                        borderRadius: "0.5rem",
-                                        height: "80px",
-                                        display: "flex",
-                                        flexDirection: "column",
-                                        alignItems: "center",
-                                        justifyContent: "center",
-                                        cursor: isReadOnly ? "default" : "pointer",
-                                        overflow: "hidden",
-                                        position: "relative",
-                                        background: photoPreview ? "none" : "#f8fafc"
-                                    }}
-                                >
-                                    {photoPreview ? (
-                                        <img src={photoPreview} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Preview" />
-                                    ) : (
-                                        <>
-                                            <Camera size={20} color="var(--color-text-muted)" />
-                                            {!isReadOnly && <span style={{ fontSize: "0.7rem", color: "var(--color-text-muted)", marginTop: 4 }}>Tải ảnh</span>}
-                                        </>
-                                    )}
-                                    <input id="photo-upload" type="file" accept="image/*" onChange={handlePhotoChange} style={{ display: "none" }} disabled={isReadOnly} />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="modal-footer">
-                        {isReadOnly ? (
-                            <button type="button" className="btn btn-primary" onClick={onClose}>Đóng</button>
-                        ) : (
-                            <>
-                                <button type="button" className="btn btn-secondary" onClick={onClose}>Hủy</button>
-                                <button type="submit" className="btn btn-primary" disabled={loading}>
-                                    <Save size={14} /> {loading ? "Đang lưu..." : "Lưu bản ghi"}
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </form>
-            </div>
-        </div>
-    );
-}
 
 /* ─── Main Page ─── */
 export default function MeterReadingPage() {
+    const navigate = useNavigate();
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState("");
     const [buildings, setBuildings] = useState([]);
@@ -268,83 +33,115 @@ export default function MeterReadingPage() {
     const [readings, setReadings] = useState([]);
     const [loading, setLoading] = useState(false);
     const [saving, setSaving] = useState(false);
-    const [showAddModal, setShowAddModal] = useState(false);
-    const [editData, setEditData] = useState(null);
-    const [toasts, setToasts] = useState([]);
 
     const [expandedFloors, setExpandedFloors] = useState({});
     const [expandedApts, setExpandedApts] = useState({});
+    const [page, setPage] = useState(1);
+    const [pagination, setPagination] = useState({ totalPages: 0, totalElements: 0, pageSize: 5 });
+    const [availableFloors, setAvailableFloors] = useState([]);
+    const [floorIndex, setFloorIndex] = useState(0);
+    const [filters, setFilters] = useState({ code: "" });
     const fileInputRef = useRef(null);
 
-    const addToast = useCallback((msg, type = "success") => {
-        const id = Date.now();
-        setToasts((prev) => [...prev, { id, msg, type }]);
-        setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
-    }, []);
 
-    // 1. Tải danh sách Dịch Vụ và Tòa Nhà khi mới quay vào trang
+    const location = useLocation();
+    const query = new URLSearchParams(location.search);
+    const qServiceId = query.get("serviceId");
+    const qBuildingId = query.get("buildingId");
+    const qPeriod = query.get("period");
+
+    // 1. Load Services and Buildings
     useEffect(() => {
         const loadInitialData = async () => {
             try {
-                // Tải Dịch Vụ
                 const resService = await serviceApi.getAll(true);
                 const serviceList = resService.data?.result || [];
                 setServices(serviceList);
                 if (serviceList.length > 0) {
-                    setSelectedService(serviceList[0].id);
+                    setSelectedService(qServiceId || serviceList[0].id);
                 }
 
-                // Tải Tòa Nhà
                 const resBuilding = await fetchBuildings(0, 1000);
                 const buildingList = resBuilding.result?.content || resBuilding.result || resBuilding || [];
                 setBuildings(buildingList);
                 if (buildingList.length > 0) {
-                    setSelectedBuilding(buildingList[0].id);
+                    setSelectedBuilding(qBuildingId || buildingList[0].id);
                 }
+
+                if (qPeriod) setPeriod(qPeriod);
             } catch (error) {
-                addToast("Lỗi khi tải dữ liệu khởi tạo", "error");
+                toast.error("Lỗi khi tải dữ liệu khởi tạo");
             }
         };
-
         loadInitialData();
-    }, [addToast]);
+    }, []);
 
-    // 2. Tải danh sách Căn Hộ mỗi khi Tòa Nhà thay đổi
+    // 2. Load Floors when building changes
     useEffect(() => {
-        if (!selectedBuilding) return;
-
-        const loadApartments = async () => {
-            setBuildingApartments([]); // Clear danh sách cũ
+        if (!selectedBuilding) {
+            setAvailableFloors([]);
+            setFloorIndex(0);
+            return;
+        }
+        const loadFloors = async () => {
             try {
-                const res = await fetchApartmentsByBuilding(selectedBuilding);
-                setBuildingApartments(res.result || res.data || []);
+                const res = await fetchBuildingFloors(selectedBuilding);
+                const floors = res.result || [];
+                setAvailableFloors(floors);
+                setFloorIndex(0);
+                setPage(1);
+            } catch (err) {
+                console.error("Lỗi khi tải danh sách tầng:", err);
+            }
+        };
+        loadFloors();
+    }, [selectedBuilding]);
+
+    // 2.2. Load Apartments when building, floorIndex, page or filters change
+    useEffect(() => {
+        if (!selectedBuilding || availableFloors.length === 0) return;
+
+        const loadApts = async () => {
+            try {
+                const floor = availableFloors[floorIndex];
+                const res = await fetchApartmentsWithFilters({
+                    buildingId: selectedBuilding,
+                    floorNumber: floor,
+                    page: page - 1,
+                    size: 5,
+                    ...(filters.code && { code: filters.code }),
+                });
+                const pagingResult = res.result || {};
+                setBuildingApartments(pagingResult.content || []);
+                setPagination({
+                    totalPages: pagingResult.totalPages || 0,
+                    totalElements: pagingResult.totalElements || 0,
+                    pageSize: pagingResult.size || 5
+                });
             } catch (err) {
                 console.error("Lỗi khi tải căn hộ:", err);
             }
         };
+        loadApts();
+    }, [selectedBuilding, availableFloors, floorIndex, page, filters]);
 
-        loadApartments();
-    }, [selectedBuilding]);
-
-    // 3. Tải Chỉ Số Đồng Hồ mỗi khi Kỳ Thanh Toán hoặc Dịch Vụ thay đổi
-    const fetchReadings = async () => {
+    // 3. Load Readings when service or period changes
+    const fetchReadings = useCallback(async () => {
         if (!selectedService || !period) return;
         setLoading(true);
         try {
             const res = await meterReadingApi.getByPeriod(period, selectedService);
             setReadings(res.data?.result || []);
         } catch (err) {
-            addToast("Không thể tải dữ liệu chỉ số", "error");
+            toast.error("Không thể tải dữ liệu chỉ số");
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedService, period]);
 
     useEffect(() => {
         fetchReadings();
-    }, [selectedService, period]);
-
-    // Helper functions cho thao tác UI đã bị gỡ bỏ, chỉ giữ lại API Load
+    }, [fetchReadings]);
 
     const handleSaveAll = async () => {
         const modified = readings.filter((r) => r.isModified && (r.status === "DRAFT" || r.status === "UNRECORDED"));
@@ -352,83 +149,158 @@ export default function MeterReadingPage() {
         setSaving(true);
         try {
             await Promise.all(modified.map((r) => {
-                if (r.isPlaceholder) {
-                    return meterReadingApi.create({
-                        apartmentId: r.apartmentId,
-                        serviceId: selectedService,
-                        period: period,
-                        newIndex: parseFloat(r.newIndex),
-                        isMeterReset: !!r.isMeterReset,
-                        note: r.note || ""
-                    });
+                const isTemp = String(r.id).startsWith("temp-");
+                const payload = {
+                    apartmentId: r.apartmentId,
+                    serviceId: selectedService,
+                    period: period,
+                    newIndex: parseFloat(r.newIndex),
+                    isMeterReset: !!r.isMeterReset,
+                    note: r.note || ""
+                };
+
+                if (isTemp) {
+                    return meterReadingApi.create(payload);
                 } else {
-                    return meterReadingApi.update(r.id, {
-                        newIndex: parseFloat(r.newIndex),
-                        isMeterReset: !!r.isMeterReset,
-                        note: r.note || ""
-                    });
+                    return meterReadingApi.update(r.id, payload);
                 }
             }));
-            addToast(`Đã lưu ${modified.length} bản ghi`);
+            toast.success(`Đã lưu ${modified.length} bản ghi`);
             fetchReadings();
         } catch (err) {
-            addToast("Lỗi khi lưu dữ liệu", "error");
+            toast.error("Lỗi khi lưu dữ liệu");
         } finally {
             setSaving(false);
         }
     };
 
-    const handleExportTemplate = () => {
-        const flatList = groupedReadings.flatMap(g => g.items);
-        if (flatList.length === 0) { addToast("Không có dữ liệu để xuất mẫu", "error"); return; }
-        const ws = XLSX.utils.json_to_sheet(flatList.map(r => ({
-            MaHoDan: r.apartmentCode,
-            TenChuHo: r.residentName || "",
-            ChiSoCu: r.oldIndex,
-            ChiSoMoi: ""
-        })));
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Template");
-        XLSX.writeFile(wb, `Mau_Ghi_Chi_So_${period}.xlsx`);
+    const handleExportTemplate = async () => {
+        if (!selectedBuilding) { toast.error("Vui lòng chọn tòa nhà để xuất mẫu"); return; }
+        setLoading(true);
+        try {
+            // Fetch all apartments for building to have a complete template
+            const resApts = await fetchApartmentsByBuilding(selectedBuilding);
+            const allApts = resApts.result || [];
+
+            if (allApts.length === 0) {
+                toast.error("Tòa nhà chưa có dữ liệu căn hộ");
+                return;
+            }
+
+            // Create flat list for Excel
+            const data = allApts.map(apt => {
+                // Find current reading if exists to pre-fill OLD index
+                const r = readings.find(read => read.apartmentId === apt.id);
+                return {
+                    "Tầng": apt.floorNumber,
+                    "Mã căn hộ": apt.code,
+                    "Tên cư dân": apt.residentName || "Chưa có",
+                    "Chỉ số cũ": r ? r.oldIndex : 0,
+                    "Chỉ số mới": r ? (r.newIndex || "") : ""
+                };
+            });
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Mau_Ghi_Chi_So");
+
+            const buildingName = buildings.find(b => b.id === selectedBuilding)?.name || "Building";
+            const serviceName = services.find(s => s.id === selectedService)?.name || "Service";
+            XLSX.writeFile(wb, `Mau_Ghi_Chi_So_${buildingName}_${serviceName}_${period}.xlsx`);
+            toast.success("Đã xuất mẫu Excel cho tòa nhà");
+        } catch (err) {
+            console.error("Export template error:", err);
+            toast.error("Lỗi khi tạo file mẫu Excel");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleExcelImport = (e) => {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
-            const data = XLSX.utils.sheet_to_json(XLSX.read(event.target.result, { type: "binary" }).Sheets[0]);
-            setReadings(prev => {
-                const newReadings = [...prev];
-                data.forEach(match => {
-                    const aptCode = match.MaHoDan;
-                    const newIdx = parseFloat(match.ChiSoMoi) || 0;
-                    const existingIndex = newReadings.findIndex(r => r.apartmentCode === aptCode);
-                    if (existingIndex >= 0) {
-                        const r = newReadings[existingIndex];
-                        newReadings[existingIndex] = { ...r, newIndex: match.ChiSoMoi, usage: newIdx - (r.oldIndex || 0), isModified: true, status: r.status === "UNRECORDED" ? "DRAFT" : r.status };
-                    } else {
-                        const apt = buildingApartments.find(a => a.code === aptCode);
-                        if (apt) {
-                            newReadings.push({
-                                id: "temp-" + apt.id,
-                                apartmentId: apt.id,
-                                apartmentCode: apt.code,
-                                buildingId: apt.buildingId,
-                                period: period,
-                                serviceId: selectedService,
-                                status: "DRAFT",
-                                oldIndex: match.ChiSoCu || 0,
-                                newIndex: match.ChiSoMoi,
-                                usage: newIdx - (match.ChiSoCu || 0),
-                                isModified: true,
-                                isPlaceholder: true
-                            });
+        reader.onload = async (event) => {
+            try {
+                const workbook = XLSX.read(event.target.result, { type: "binary" });
+                const ws = workbook.Sheets[workbook.SheetNames[0]];
+                const data = XLSX.utils.sheet_to_json(ws);
+
+                if (data.length === 0) {
+                    toast.error("File Excel không có dữ liệu");
+                    return;
+                }
+
+                // Để import được các căn hộ chưa có bản ghi, ta cần danh sách căn hộ toàn tòa nhà
+                let allApts = [];
+                try {
+                    const resApts = await fetchApartmentsByBuilding(selectedBuilding);
+                    allApts = resApts.result || [];
+                } catch (err) {
+                    console.error("Lỗi tải danh sách căn hộ khi import:", err);
+                }
+
+                setReadings(prev => {
+                    const nextReadings = [...prev];
+                    let matchCount = 0;
+
+                    data.forEach(row => {
+                        const aptCode = String(row["Mã căn hộ"] || row["MaHoDan"] || row["Căn hộ"] || "").trim();
+                        const newIdxStr = row["Chỉ số mới"] !== undefined ? row["Chỉ số mới"] : row["ChiSoMoi"];
+
+                        if (aptCode && newIdxStr !== undefined && newIdxStr !== "") {
+                            const newIdxNum = parseFloat(newIdxStr);
+                            if (!isNaN(newIdxNum)) {
+                                // 1. Tìm trong readings đã có
+                                const idx = nextReadings.findIndex(r => String(r.apartmentCode).trim() === aptCode);
+
+                                if (idx >= 0) {
+                                    const r = nextReadings[idx];
+                                    nextReadings[idx] = {
+                                        ...r,
+                                        newIndex: String(newIdxNum),
+                                        usage: newIdxNum - (r.oldIndex || 0),
+                                        isModified: true,
+                                        status: r.status === "UNRECORDED" ? "DRAFT" : r.status
+                                    };
+                                    matchCount++;
+                                } else {
+                                    // 2. Tìm trong danh sách căn hộ để tạo mới bản ghi DRAFT
+                                    const apt = allApts.find(a => String(a.code).trim() === aptCode);
+                                    if (apt) {
+                                        nextReadings.push({
+                                            id: "temp-import-" + apt.id,
+                                            apartmentId: apt.id,
+                                            apartmentCode: apt.code,
+                                            residentName: apt.residentName,
+                                            buildingId: apt.buildingId,
+                                            period: period,
+                                            serviceId: selectedService,
+                                            oldIndex: 0,
+                                            newIndex: String(newIdxNum),
+                                            usage: newIdxNum,
+                                            status: "DRAFT",
+                                            isModified: true,
+                                            isPlaceholder: false
+                                        });
+                                        matchCount++;
+                                    }
+                                }
+                            }
                         }
+                    });
+
+                    if (matchCount > 0) {
+                        toast.success(`Đã cập nhật ${matchCount} chỉ số từ Excel`);
+                    } else {
+                        toast.error("Không tìm thấy mã căn hộ tương ứng trong danh sách");
                     }
+                    return nextReadings;
                 });
-                return newReadings;
-            });
+            } catch (err) {
+                console.error("Import error:", err);
+                toast.error("Lỗi khi đọc file Excel. Vui lòng kiểm tra lại định dạng.");
+            }
         };
         reader.readAsBinaryString(file);
         e.target.value = null;
@@ -449,6 +321,9 @@ export default function MeterReadingPage() {
     const groupedReadings = useMemo(() => {
         const activeBuilding = buildings.find(b => b.id === selectedBuilding);
         const activeAptCodes = buildingApartments.map(a => a.code);
+        // Map để tra cứu tầng từ ID căn hộ
+        const aptToFloor = {};
+        buildingApartments.forEach(a => aptToFloor[a.id] = a.floorNumber);
 
         const filteredReadings = activeBuilding
             ? readings.filter(r => activeAptCodes.includes(r.apartmentCode))
@@ -464,6 +339,7 @@ export default function MeterReadingPage() {
                 apartmentId: apt.id,
                 apartmentCode: apt.code,
                 buildingId: apt.buildingId,
+                floor: apt.floorNumber, // Thêm dữ liệu tầng vào placeholder
                 period: period,
                 serviceId: selectedService,
                 status: "UNRECORDED",
@@ -478,14 +354,19 @@ export default function MeterReadingPage() {
 
         const groups = {};
         fullList.forEach(r => {
-            const floor = r.floor || getFloorFromCode(r.apartmentCode);
+            // Lấy tầng từ dữ liệu căn hộ nạp vào hoặc logic cũ
+            const floor = r.floor || aptToFloor[r.apartmentId] || getFloorFromCode(r.apartmentCode);
             if (!groups[floor]) groups[floor] = [];
             groups[floor].push(r);
         });
         const sortedFloors = Object.keys(groups).sort((a, b) => {
             if (a === "Khác") return 1;
             if (b === "Khác") return -1;
-            return parseInt(a) - parseInt(b);
+            const fa = parseInt(a);
+            const fb = parseInt(b);
+            if (isNaN(fa)) return a.localeCompare(b);
+            if (isNaN(fb)) return a.localeCompare(b);
+            return fa - fb;
         });
         return sortedFloors.map(floor => ({
             floor,
@@ -493,13 +374,8 @@ export default function MeterReadingPage() {
         }));
     }, [readings, buildings, selectedBuilding, buildingApartments, period, selectedService]);
 
-    const toggleFloor = (floor) => {
-        setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
-    };
-
-    const toggleApt = (id) => {
-        setExpandedApts(prev => ({ ...prev, [id]: !prev[id] }));
-    };
+    const toggleFloor = (floor) => setExpandedFloors(prev => ({ ...prev, [floor]: !prev[floor] }));
+    const toggleApt = (id) => setExpandedApts(prev => ({ ...prev, [id]: !prev[id] }));
 
     const activeSvc = services.find(s => s.id === selectedService);
 
@@ -519,7 +395,8 @@ export default function MeterReadingPage() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "1.5rem", alignItems: "flex-end" }}>
                     <div className="form-group" style={{ marginBottom: 0, minWidth: 200 }}>
                         <label className="form-label">Tòa Nhà</label>
-                        <select className="form-select" value={selectedBuilding} onChange={e => setSelectedBuilding(e.target.value)}>
+                        <select className="form-select" value={selectedBuilding} onChange={e => { setSelectedBuilding(e.target.value); setPage(1); }}>
+                            <option value="">Chọn tòa nhà</option>
                             {buildings.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                         </select>
                     </div>
@@ -533,21 +410,38 @@ export default function MeterReadingPage() {
                             {services.map(s => <option key={s.id} value={s.id}>{s.name} ({s.unit})</option>)}
                         </select>
                     </div>
-                    <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem" }}>
-                        <button className="btn btn-primary btn-sm" onClick={() => { setEditData(null); setShowAddModal(true); }} disabled={!selectedService}>
+                    {/* <div style={{ marginLeft: "auto", display: "flex", gap: "0.75rem" }}>
+                        <button className="btn btn-primary btn-sm" onClick={() => navigate(`/meter-readings/create?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)} disabled={!selectedService}>
                             <Plus size={14} /> Thêm chỉ số
                         </button>
-                    </div>
+                    </div> */}
                 </div>
             </div>
 
-            <div className="card">
-                <div className="toolbar" style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem" }}>
-                    <div className="toolbar__search">
-                        <Search className="search-icon" />
-                        <input className="form-input" placeholder="Tìm căn hộ..." />
+            <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "500px" }}>
+                <div className="toolbar" style={{ borderBottom: "1px solid #e2e8f0", paddingBottom: "1rem", flexWrap: "wrap", gap: "1rem" }}>
+                    <div style={{ display: "flex", gap: "0.75rem", flex: 1, minWidth: "300px" }}>
+                        <div className="toolbar__search" style={{ flex: 1 }}>
+                            <Search className="search-icon" />
+                            <input
+                                className="form-input"
+                                placeholder="Mã căn hộ..."
+                                value={filters.code}
+                                onChange={e => { setFilters(prev => ({ ...prev, code: e.target.value })); setPage(1); }}
+                            />
+                        </div>
+                        <div style={{ minWidth: "150px" }}>
+                            <select
+                                className="form-select"
+                                value={floorIndex}
+                                onChange={e => { setFloorIndex(parseInt(e.target.value)); setPage(1); }}
+                            >
+                                {availableFloors.map((f, i) => <option key={f} value={i}>Tầng {f}</option>)}
+                            </select>
+                        </div>
                     </div>
                     <div className="toolbar__actions">
+                        <button className="btn btn-secondary btn-sm" onClick={() => { setFilters({ code: "" }); setFloorIndex(0); setPage(1); }} title="Xóa bộ lọc">Xóa lọc</button>
                         <button className="btn btn-secondary btn-sm" onClick={handleExportTemplate}><Download size={14} /> Xuất mẫu</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()}><Upload size={14} /> Excel</button>
                         <input type="file" ref={fileInputRef} style={{ display: "none" }} accept=".xlsx,.xls" onChange={handleExcelImport} />
@@ -557,7 +451,7 @@ export default function MeterReadingPage() {
                     </div>
                 </div>
 
-                <div style={{ overflowX: "auto", position: "relative" }}>
+                <div style={{ overflowX: "auto", position: "relative", flex: 1 }}>
                     {loading ? <div style={{ textAlign: "center", padding: "2rem" }}>Đang tải...</div> :
                         groupedReadings.length === 0 ? <div style={{ textAlign: "center", padding: "2rem" }}>Chưa có dữ liệu kỳ {period}.</div> :
                             (
@@ -613,7 +507,7 @@ export default function MeterReadingPage() {
                                                                                     </>
                                                                                 )}
                                                                                 <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>TRẠNG THÁI</th>
-                                                                                <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>ACTIONS</th>
+                                                                                <th style={{ textAlign: "center", textTransform: "uppercase", fontSize: "0.75rem", color: "#64748b" }}>HÀNH ĐỘNG</th>
                                                                             </tr>
                                                                         </thead>
                                                                         <tbody>
@@ -642,15 +536,9 @@ export default function MeterReadingPage() {
                                                                                 ) : (
                                                                                     <>
                                                                                         <td style={{ textAlign: "left", paddingLeft: "1.5rem", color: "#475569" }}>
-                                                                                            {activeSvc?.billingMethod === "AREA" ? (
-                                                                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
-                                                                                                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>THEO DIỆN TÍCH</span>
-                                                                                                </span>
-                                                                                            ) : (
-                                                                                                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
-                                                                                                    <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>CỐ ĐỊNH</span>
-                                                                                                </span>
-                                                                                            )}
+                                                                                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", background: "#f1f5f9", padding: "0.2rem 0.6rem", borderRadius: "1rem" }}>
+                                                                                                <span style={{ fontSize: "0.75rem", fontWeight: 600 }}>{activeSvc?.billingMethod === "AREA" ? "THEO DIỆN TÍCH" : "CỐ ĐỊNH"}</span>
+                                                                                            </span>
                                                                                         </td>
                                                                                         <td style={{ textAlign: "left", color: "#64748b", fontSize: "0.85rem" }}>
                                                                                             {r.note || <span style={{ fontStyle: "italic", opacity: 0.5 }}>-</span>}
@@ -663,34 +551,41 @@ export default function MeterReadingPage() {
                                                                                 <td style={{ textAlign: "center" }}>
                                                                                     <div style={{ display: "flex", gap: "0.4rem", justifyContent: "center" }}>
                                                                                         {r.status === "UNRECORDED" ? (
-                                                                                            <button className="icon-btn success" title="Thêm chỉ số" onClick={() => { setEditData(r); setShowAddModal(true); }}>
+                                                                                            <button className="icon-btn success" title="Thêm chỉ số" onClick={() => navigate(`/meter-readings/create?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}&apartmentId=${r.apartmentId}`)}>
                                                                                                 <Plus size={15} />
                                                                                             </button>
                                                                                         ) : r.status === "DRAFT" ? (
                                                                                             <>
-                                                                                                <button className="icon-btn success" title="Xác nhận" onClick={() => meterReadingApi.confirm(r.id).then(fetchReadings)}><CheckCircle size={15} /></button>
-                                                                                                <button className="icon-btn primary" title="Sửa" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                                                                                                                                 {!String(r.id).startsWith("temp-") && (
+                                                                                                     <button className="icon-btn success" title="Xác nhận" onClick={() => meterReadingApi.confirm(r.id).then(fetchReadings)}><CheckCircle size={15} /></button>
+                                                                                                 )}
+                                                                                                                                                                                                 <button 
+                                                                                                     className="icon-btn primary" 
+                                                                                                     title="Sửa" 
+                                                                                                     onClick={() => {
+                                                                                                         if (String(r.id).startsWith("temp-")) {
+                                                                                                             navigate(`/meter-readings/create?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}&apartmentId=${r.apartmentId}&newIndex=${r.newIndex}&note=${r.note || ""}`);
+                                                                                                         } else {
+                                                                                                             navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`);
+                                                                                                         }
+                                                                                                     }}
+                                                                                                 >
+                                                                                                     <Edit2 size={15} />
+                                                                                                 </button>
                                                                                             </>
                                                                                         ) : r.status === "CONFIRMED" ? (
                                                                                             <>
                                                                                                 <button className="icon-btn warning" title="Khóa" onClick={() => meterReadingApi.lock(r.id).then(fetchReadings)}><Lock size={15} /></button>
-                                                                                                <button className="icon-btn primary" title="Xem" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                                <button className="icon-btn primary" title="Xem/Sửa" onClick={() => navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)}><Edit2 size={15} /></button>
                                                                                             </>
                                                                                         ) : (
-                                                                                            <button className="icon-btn primary" title="Xem chi tiết" onClick={() => { setEditData(r); setShowAddModal(true); }}><Edit2 size={15} /></button>
+                                                                                            <button className="icon-btn primary" title="Xem chi tiết" onClick={() => navigate(`/meter-readings/edit/${r.id}?serviceId=${selectedService}&period=${period}&buildingId=${selectedBuilding}`)}><Edit2 size={15} /></button>
                                                                                         )}
                                                                                     </div>
                                                                                 </td>
                                                                             </tr>
                                                                         </tbody>
                                                                     </table>
-                                                                    {r.note && r.status !== "UNRECORDED" && (
-                                                                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "1rem" }}>
-                                                                            <div style={{ flex: 1, padding: "0.75rem", backgroundColor: "#f1f5f9", borderRadius: "0.5rem", fontSize: "0.875rem", color: "#475569" }}>
-                                                                                <strong style={{ color: "#334155" }}>Ghi chú:</strong> {r.note}
-                                                                            </div>
-                                                                        </div>
-                                                                    )}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -702,29 +597,71 @@ export default function MeterReadingPage() {
                                 </div>
                             )}
                 </div>
+                {/* Pagination Footer */}
+                <div style={{
+                    padding: "1rem 1.5rem",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderTop: "1px solid #e2e8f0",
+                    backgroundColor: "#f8fafc"
+                }}>
+                    <div style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>
+                        Tầng <strong>{availableFloors[floorIndex]}</strong> · Dữ liệu trang <strong>{page}</strong> / {pagination.totalPages} · Tổng số {pagination.totalElements} căn hộ
+                    </div>
+
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                        {/* Floor Navigation */}
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            disabled={floorIndex === 0 || loading}
+                            onClick={() => { setFloorIndex(i => i - 1); setPage(1); }}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                            title="Tầng trước"
+                        >
+                            <ChevronUp size={18} />
+                        </button>
+
+                        <div style={{ borderLeft: "1px solid #e2e8f0", margin: "0 4px" }}></div>
+
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            disabled={page === 1 || loading}
+                            onClick={() => setPage(p => p - 1)}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                        >
+                            <ChevronLeft size={18} /> Trang trước
+                        </button>
+
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            disabled={page >= pagination.totalPages || loading}
+                            onClick={() => setPage(p => p + 1)}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                        >
+                            Trang sau <ChevronRight size={18} />
+                        </button>
+
+                        <div style={{ borderLeft: "1px solid #e2e8f0", margin: "0 4px" }}></div>
+
+                        <button
+                            className="btn btn-ghost"
+                            disabled={floorIndex >= availableFloors.length - 1 || loading}
+                            onClick={() => { setFloorIndex(i => i + 1); setPage(1); }}
+                            style={{ background: "white", border: "1px solid var(--color-border)" }}
+                            title="Tầng sau"
+                        >
+                            <ChevronDown size={18} />
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {showAddModal && (
-                <ManualReadingModal
-                    service={services.find(s => s.id === selectedService)}
-                    period={period}
-                    apartments={buildingApartments}
-                    initialData={editData}
-                    onSaved={() => {
-                        setShowAddModal(false);
-                        fetchReadings();
-                        addToast(editData?.id && !editData?.isPlaceholder ? "Cập nhật thành công!" : "Đã thêm chỉ số mới!");
-                    }}
-                    onClose={() => setShowAddModal(false)}
-                    onError={msg => addToast(msg, "error")}
-                />
-            )}
 
-            <Toast toasts={toasts} onRemove={id => setToasts(prev => prev.filter(t => t.id !== id))} />
             <style>{`
-        .row--modified { background-color: #f0f9ff; }
-        .form-checkbox { width: 16px; height: 16px; cursor: pointer; }
-      `}</style>
+                .row--modified { background-color: #f0f9ff; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 }

@@ -9,15 +9,33 @@ import {
     Clock,
     CheckCircle2,
     XCircle,
-    BarChart2,
 } from "lucide-react";
 import maintenanceApi from "../../api/maintenanceApi";
 
 const STATUS_MAP = {
-    PENDING:     { label: "Chờ xử lý",   cssClass: "badge--draft" },
-    IN_PROGRESS: { label: "Đang xử lý",  cssClass: "badge--confirmed" },
-    COMPLETED:   { label: "Hoàn thành",  cssClass: "badge--active" },
-    CANCELLED:   { label: "Đã huỷ",      cssClass: "badge--inactive" },
+    PENDING:          { label: "Chờ xử lý", cssClass: "badge--draft" },
+    VERIFYING:        { label: "Đang xác minh", cssClass: "badge--confirmed" },
+    QUOTING:          { label: "Đang báo giá", cssClass: "badge--metered" },
+    WAITING_APPROVAL: { label: "Chờ duyệt báo giá", cssClass: "badge--flat" },
+    APPROVED:         { label: "Đã duyệt báo giá", cssClass: "badge--tier" },
+    IN_PROGRESS:      { label: "Đang xử lý", cssClass: "badge--confirmed" },
+    COMPLETED:        { label: "Hoàn thành", cssClass: "badge--active" },
+    RESIDENT_ACCEPTED:{ label: "Cư dân đã nghiệm thu", cssClass: "badge--active" },
+    CANCELLED:        { label: "Đã huỷ", cssClass: "badge--inactive" },
+};
+
+const PRIORITY_MAP = {
+    LOW: { label: "Thấp", cssClass: "badge--locked" },
+    NORMAL: { label: "Bình thường", cssClass: "badge--confirmed" },
+    MEDIUM: { label: "Trung bình", cssClass: "badge--metered" },
+    HIGH: { label: "Cao", cssClass: "badge--flat" },
+    URGENT: { label: "Khẩn cấp", cssClass: "badge--inactive" },
+    CRITICAL: { label: "Nghiêm trọng", cssClass: "badge--inactive" },
+};
+
+const SCOPE_MAP = {
+    PUBLIC: { label: "Công cộng", cssClass: "badge--flat" },
+    PRIVATE: { label: "Riêng tư", cssClass: "badge--confirmed" },
 };
 
 export default function MaintenancePage() {
@@ -29,6 +47,8 @@ export default function MaintenancePage() {
     const [keyword, setKeyword] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
     const [priorityFilter, setPriorityFilter] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("");
+    const [scopeFilter, setScopeFilter] = useState("");
     const [page, setPage]       = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const PAGE_SIZE = 10;
@@ -40,6 +60,8 @@ export default function MaintenancePage() {
             const params = { keyword, page, size: PAGE_SIZE };
             if (statusFilter) params.status = statusFilter;
             if (priorityFilter) params.priority = priorityFilter;
+            if (categoryFilter) params.category = categoryFilter;
+            if (scopeFilter) params.scope = scopeFilter;
             
             const [reqRes, statsRes] = await Promise.all([
                 maintenanceApi.getRequests(params),
@@ -63,6 +85,56 @@ export default function MaintenancePage() {
         fetchData();
     };
 
+    const getStatusCount = (keys) => {
+        if (!stats?.byStatus) return 0;
+        return keys.reduce((sum, key) => sum + (stats.byStatus[key] || 0), 0);
+    };
+
+    const statCards = [
+        {
+            key: "PENDING",
+            label: "Chờ xử lý",
+            value: getStatusCount(["PENDING"]),
+            icon: Clock,
+            iconClass: "stat-card__icon--yellow",
+        },
+        {
+            key: "VERIFYING",
+            label: "Đang xác minh",
+            value: getStatusCount(["VERIFYING"]),
+            icon: Search,
+            iconClass: "stat-card__icon--blue",
+        },
+        {
+            key: "QUOTING_WAITING",
+            label: "Báo giá / Chờ duyệt",
+            value: getStatusCount(["QUOTING", "WAITING_APPROVAL"]),
+            icon: AlertCircle,
+            iconClass: "stat-card__icon--yellow",
+        },
+        {
+            key: "APPROVED_IN_PROGRESS",
+            label: "Đã duyệt / Đang xử lý",
+            value: getStatusCount(["APPROVED", "IN_PROGRESS"]),
+            icon: Wrench,
+            iconClass: "stat-card__icon--blue",
+        },
+        {
+            key: "DONE",
+            label: "Hoàn thành / Nghiệm thu",
+            value: getStatusCount(["COMPLETED", "RESIDENT_ACCEPTED"]),
+            icon: CheckCircle2,
+            iconClass: "stat-card__icon--green",
+        },
+        {
+            key: "CANCELLED",
+            label: "Đã hủy",
+            value: getStatusCount(["CANCELLED"]),
+            icon: XCircle,
+            iconClass: "stat-card__icon--red",
+        },
+    ];
+
     return (
         <div>
             {/* Page Header */}
@@ -81,50 +153,20 @@ export default function MaintenancePage() {
             {/* Stats */}
             {stats && (
                 <div className="stats-grid">
-                    <div className="stat-card">
-                        <div className="stat-card__icon stat-card__icon--yellow">
-                            <Clock size={22} />
-                        </div>
-                        <div>
-                            <div className="stat-card__value">
-                                {stats.byStatus?.PENDING ?? "–"}
+                    {statCards.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                            <div key={item.key} className="stat-card">
+                                <div className={`stat-card__icon ${item.iconClass}`}>
+                                    <Icon size={22} />
+                                </div>
+                                <div>
+                                    <div className="stat-card__value">{item.value}</div>
+                                    <div className="stat-card__label">{item.label}</div>
+                                </div>
                             </div>
-                            <div className="stat-card__label">Chờ xử lý</div>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-card__icon stat-card__icon--blue">
-                            <Wrench size={22} />
-                        </div>
-                        <div>
-                            <div className="stat-card__value">
-                                {stats.byStatus?.IN_PROGRESS ?? "–"}
-                            </div>
-                            <div className="stat-card__label">Đang xử lý</div>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-card__icon stat-card__icon--green">
-                            <CheckCircle2 size={22} />
-                        </div>
-                        <div>
-                            <div className="stat-card__value">
-                                {stats.byStatus?.COMPLETED ?? "–"}
-                            </div>
-                            <div className="stat-card__label">Hoàn thành</div>
-                        </div>
-                    </div>
-                    <div className="stat-card">
-                        <div className="stat-card__icon stat-card__icon--red">
-                            <XCircle size={22} />
-                        </div>
-                        <div>
-                            <div className="stat-card__value">
-                                {stats.byStatus?.CANCELLED ?? "–"}
-                            </div>
-                            <div className="stat-card__label">Đã huỷ</div>
-                        </div>
-                    </div>
+                        );
+                    })}
                 </div>
             )}
 
@@ -168,9 +210,36 @@ export default function MaintenancePage() {
                     >
                         <option value="">Tất cả độ ưu tiên</option>
                         <option value="LOW">Thấp</option>
+                        <option value="NORMAL">Bình thường</option>
                         <option value="MEDIUM">Trung bình</option>
                         <option value="HIGH">Cao</option>
                         <option value="URGENT">Khẩn cấp</option>
+                        <option value="CRITICAL">Nghiêm trọng</option>
+                    </select>
+
+                    <select
+                        className="form-input"
+                        value={categoryFilter}
+                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        style={{ width: '170px' }}
+                    >
+                        <option value="">Tất cả danh mục</option>
+                        <option value="REPAIR">Sửa chữa</option>
+                        <option value="MAINTENANCE">Bảo trì</option>
+                        <option value="SERVICE">Dịch vụ</option>
+                        <option value="CLEANING">Vệ sinh</option>
+                        <option value="OTHER">Khác</option>
+                    </select>
+
+                    <select
+                        className="form-input"
+                        value={scopeFilter}
+                        onChange={(e) => setScopeFilter(e.target.value)}
+                        style={{ width: '160px' }}
+                    >
+                        <option value="">Tất cả phạm vi</option>
+                        <option value="PRIVATE">Riêng tư</option>
+                        <option value="PUBLIC">Công cộng</option>
                     </select>
 
                     <div className="toolbar__actions">
@@ -203,9 +272,10 @@ export default function MaintenancePage() {
                         <thead>
                             <tr>
                                 <th>Tiêu đề</th>
-                                <th>Cư dân</th>
+                                <th>Phòng / Căn hộ</th>
                                 <th>Nhân viên</th>
                                 <th>Ưu tiên</th>
+                                <th>Phạm vi</th>
                                 <th>Trạng thái</th>
                                 <th>Ngày tạo</th>
                                 <th></th>
@@ -213,13 +283,30 @@ export default function MaintenancePage() {
                         </thead>
                         <tbody>
                             {requests.map((r) => {
-                                const s = STATUS_MAP[r.status] ?? { label: r.status, cssClass: "badge--locked" };
+                                const statusValue = r.requestStatus || r.status;
+                                const priorityValue = r.priority;
+                                const s = STATUS_MAP[statusValue] ?? { label: statusValue || "-", cssClass: "badge--locked" };
+                                const p = PRIORITY_MAP[priorityValue] ?? { label: priorityValue || "-", cssClass: "badge--locked" };
+                                const scopeValue = r.scope;
+                                const scope = SCOPE_MAP[scopeValue] ?? { label: scopeValue || "-", cssClass: "badge--locked" };
+                                const staffName = r.staffName || r.assignedStaffName;
                                 return (
                                     <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => navigate(`/maintenance/${r.id}`)}>
-                                        <td style={{ fontWeight: 500 }}>{r.title ?? "–"}</td>
-                                        <td>{r.residentName ?? "–"}</td>
-                                        <td>{r.assignedStaffName ?? <span style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>Chưa giao</span>}</td>
-                                        <td>{r.priority ?? "–"}</td>
+                                        <td>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                                                <span style={{ fontWeight: 700 }}>{r.title ?? "–"}</span>
+                                                <span style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}>{r.code ?? ""}</span>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "0.15rem" }}>
+                                                <span style={{ fontWeight: 600 }}>{r.apartmentCode || "Chưa có phòng"}</span>
+                                                <span style={{ color: "var(--color-text-muted)", fontSize: "0.78rem" }}>{r.buildingName || "-"}</span>
+                                            </div>
+                                        </td>
+                                        <td>{staffName ?? <span style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>Chưa giao</span>}</td>
+                                        <td><span className={`badge ${p.cssClass}`}>{p.label}</span></td>
+                                        <td><span className={`badge ${scope.cssClass}`}>{scope.label}</span></td>
                                         <td><span className={`badge ${s.cssClass}`}>{s.label}</span></td>
                                         <td style={{ color: "var(--color-text-muted)", fontSize: "0.8rem" }}>
                                             {r.createdAt ? new Date(r.createdAt).toLocaleDateString("vi-VN") : "–"}

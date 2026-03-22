@@ -22,3 +22,19 @@ export const getResidencyHistoryPaged = async (apartmentId, params) => {
 export const assignResident = async (data) => {
   return await apiClient.post("/apartments/assign-resident", data);
 };
+
+export const fetchApartmentsByBuilding = async (buildingId) => {
+  return await apiClient.get(`/apartments/building/${buildingId}`);
+};
+
+export const getAllApartments = async () => {
+  return await apiClient.get("/apartments");
+};
+
+export const getApartmentsByBuildingPaged = async (buildingId, params) => {
+  return await apiClient.get(`/apartments/building/${buildingId}/paged`, { params });
+};
+
+export const fetchBuildingFloors = async (buildingId) => {
+  return await apiClient.get(`/apartments/building/${buildingId}/floors`);
+};

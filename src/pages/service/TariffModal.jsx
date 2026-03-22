@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Plus, Trash2, Save, ChevronDown, ChevronRight } from "lucide-react";
-import { tariffApi } from "../../api/serviceApi";
+import { tariffApi } from "../../services/serviceApi";
 
 const fmt = (n) => (n !== undefined && n !== null ? String(n) : "");
 

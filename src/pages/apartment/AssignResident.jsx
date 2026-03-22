@@ -6,6 +6,7 @@ import {
     FileText, Key, Shield
 } from "lucide-react";
 import { searchUsers, assignResident } from "../../services/userApi";
+import toast from "react-hot-toast";
 
 export default function AssignResident() {
     const navigate = useNavigate();
@@ -87,7 +88,7 @@ export default function AssignResident() {
         try {
             // Gửi dữ liệu về POST /api/apartments/assign-resident
             await assignResident(formData);
-            alert("Giao căn hộ thành công!");
+            toast.success("Giao căn hộ thành công!");
             navigate(-1); // Quay lại trang chi tiết căn hộ
         } catch (err) {
             console.error("Lỗi submit:", err);

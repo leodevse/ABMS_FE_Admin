@@ -1,6 +1,9 @@
-import axiosClient from "./axiosClient";
+import axiosClient from "../api/axiosClient";
 
 export const meterReadingApi = {
+    // ── Lấy theo ID ──────────────────────────────────────────
+    getById: (id) => axiosClient.get(`/meter-readings/${id}`),
+
     // ── Tìm kiếm (phân trang) ──────────────────────────────────
     search: (params) => axiosClient.get("/meter-readings", { params }),
     // params: { apartmentId, serviceId, period, status, page, size }

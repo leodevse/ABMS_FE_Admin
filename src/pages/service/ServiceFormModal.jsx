@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Save } from "lucide-react";
-import { serviceApi } from "../../api/serviceApi";
+import { serviceApi } from "../../services/serviceApi";
 
 const BILLING_OPTIONS = [
     { value: "FIXED", label: "Fixed – Phí cố định" },
@@ -48,9 +48,21 @@ export default function ServiceFormModal({ service, onSaved, onClose, onError })
         const e = {};
         if (!form.code.trim()) e.code = "Mã dịch vụ không được để trống";
         if (form.code.length > 50) e.code = "Mã dịch vụ tối đa 50 ký tự";
-        if (!form.name.trim()) e.name = "Tên dịch vụ không được để trống";
-        if (form.name.length > 100) e.name = "Tên dịch vụ tối đa 100 ký tự";
-        if (form.unit.length > 20) e.unit = "Đơn vị tối đa 20 ký tự";
+
+        if (!form.name.trim()) {
+            e.name = "Tên dịch vụ không được để trống";
+        } else if (form.name.length > 100) {
+            e.name = "Tên dịch vụ tối đa 100 ký tự";
+        } else if (!/^[\p{L}\p{N}\s]+$/u.test(form.name)) {
+            e.name = "Tên dịch vụ không được chứa ký tự đặc biệt";
+        }
+
+        if (form.unit.length > 20) {
+            e.unit = "Đơn vị tối đa 20 ký tự";
+        } else if (form.unit.trim() && !/^[\p{L}\p{N}\s]+$/u.test(form.unit)) {
+            e.unit = "Đơn vị không được chứa ký tự đặc biệt";
+        }
+
         if (form.description.length > 500) e.description = "Mô tả tối đa 500 ký tự";
         return e;
     };

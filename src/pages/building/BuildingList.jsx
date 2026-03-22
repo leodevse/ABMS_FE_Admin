@@ -22,6 +22,7 @@ import {
   deleteBuilding,
   generateApartments,
 } from "../../services/buildingApi";
+import toast from "react-hot-toast";
 
 export default function BuildingList() {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ export default function BuildingList() {
 
   const token = localStorage.getItem("token");
 
-  const loadBuildings = useCallback(async () => {
+const loadBuildings = useCallback(async () => {
     if (!token) return;
     setLoading(true);
     try {
@@ -53,14 +54,49 @@ export default function BuildingList() {
       if (data.code === 200 && data.result) {
         setBuildings(data.result.content || []);
         setTotalPages(data.result.totalPages || 0);
+      } else {
+        // Nếu code không phải 200 (ví dụ lỗi logic backend)
+        toast.error(data.message || "Không thể tải danh sách tòa nhà");
       }
     } catch (error) {
       console.error("Lỗi fetchBuildings:", error);
+      // Lấy message lỗi từ Exception (ví dụ: "3BR area must be at least 60 sqm")
+      const errMsg = error.response?.data?.message || error.message || "Lỗi kết nối máy chủ";
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
   }, [currentPage, pageSize, activeSearch, statusFilter, token]);
-
+const confirmAction = (message, onConfirm) => {
+  toast((t) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <span style={{ fontWeight: 500, fontSize: '0.9rem' }}>{message}</span>
+      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+        <button
+          onClick={() => toast.dismiss(t.id)}
+          className="btn btn-ghost"
+          style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+        >
+          Hủy
+        </button>
+        <button
+          onClick={() => {
+            toast.dismiss(t.id);
+            onConfirm();
+          }}
+          className="btn btn-primary"
+          style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'var(--color-danger)' }}
+        >
+          Xác nhận
+        </button>
+      </div>
+    </div>
+  ), {
+    duration: 5000,
+    position: 'top-center',
+    style: { minWidth: '300px', border: '1px solid var(--color-border)' }
+  });
+};
   useEffect(() => {
     loadBuildings();
   }, [loadBuildings]);
@@ -75,10 +111,20 @@ export default function BuildingList() {
     setStatusFilter(e.target.value);
   };
 
-  const handleDelete = async (id, name) => {
+const handleDelete = async (id, name) => {
     if (window.confirm(`Xóa tòa nhà "${name}"?`)) {
-      const res = await deleteBuilding(id, token);
-      if (res.code === 200) loadBuildings();
+      try {
+        const res = await deleteBuilding(id, token);
+        if (res.code === 200) {
+          toast.success(`Đã xóa tòa nhà ${name}`);
+          loadBuildings();
+        } else {
+          toast.error(res.message || "Xóa thất bại");
+        }
+      } catch (error) {
+        const errMsg = error.response?.data?.message || error.message || "Lỗi hệ thống khi xóa";
+        toast.error(errMsg);
+      }
     }
   };
 
@@ -86,7 +132,7 @@ export default function BuildingList() {
     if (!window.confirm("Bắt đầu sinh căn hộ?")) return;
     const res = await generateApartments(id, token);
     if (res.code === 200 || res.code === 201) {
-      alert("Thành công!");
+      toast.success("Thành công!");
       setShowModal(false);
       loadBuildings();
     }
