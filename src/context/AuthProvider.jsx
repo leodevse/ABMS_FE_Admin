@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AuthContext } from "./AuthContext";
 import { jwtDecode } from "jwt-decode";
+import toast from "react-hot-toast";
 
 const REQUIRED_ROLE = "BUILDING_MANAGER";
 
@@ -35,7 +36,7 @@ const AuthProvider = ({ children }) => {
 
     const decoded = jwtDecode(data.token);
     if (decoded.scope !== REQUIRED_ROLE) {
-      alert("Bạn không có quyền truy cập hệ thống này");
+      toast.error("Bạn không có quyền truy cập hệ thống này");
       return false;
     }
 
